@@ -1,0 +1,21 @@
+current directory: /Users/doodleblue-admin/Desktop/eds_mobile_app/vendor/bundle/ruby/2.6.0/gems/json-2.7.4/ext/json/ext/parser
+/System/Library/Frameworks/Ruby.framework/Versions/2.6/usr/bin/ruby -I /System/Library/Frameworks/Ruby.framework/Versions/2.6/usr/lib/ruby/2.6.0 -r ./siteconf20241028-53380-1ag6oor.rb extconf.rb
+/System/Library/Frameworks/Ruby.framework/Versions/2.6/usr/lib/ruby/2.6.0/universal-darwin23/rbconfig.rb:21: warning: Insecure world writable dir /Users/doodleblue-admin/Desktop in PATH, mode 040777
+checking for rb_enc_raise() in ruby.h... yes
+checking for rb_enc_interned_str() in ruby.h... no
+checking for whether -std=c99 is accepted as CFLAGS... yes
+creating Makefile
+
+current directory: /Users/doodleblue-admin/Desktop/eds_mobile_app/vendor/bundle/ruby/2.6.0/gems/json-2.7.4/ext/json/ext/parser
+make "DESTDIR=" clean
+
+current directory: /Users/doodleblue-admin/Desktop/eds_mobile_app/vendor/bundle/ruby/2.6.0/gems/json-2.7.4/ext/json/ext/parser
+make "DESTDIR="
+compiling parser.c
+linking shared-object json/ext/parser.bundle
+ld: warning: -multiply_defined is obsolete
+ld: warning: search path '/AppleInternal/Library/BuildRoots/4e1473ee-9f66-11ee-8daf-cedaeb4cabe2/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX14.3.Internal.sdk/usr/local/lib' not found
+
+current directory: /Users/doodleblue-admin/Desktop/eds_mobile_app/vendor/bundle/ruby/2.6.0/gems/json-2.7.4/ext/json/ext/parser
+make "DESTDIR=" install
+/usr/bin/install -c -m 0755 parser.bundle ./.gem.20241028-53380-1vpoo2r/json/ext
