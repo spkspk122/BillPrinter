@@ -166,22 +166,22 @@
 //     height: 100,
 //     resizeMode: "contain",
 //   },
-//   foodName: {
-//     fontSize: 16,
-//     fontWeight: "bold",
-//     textAlign: "center",
-//   },
-//   foodType: {
-//     fontSize: 12,
-//     color: "gray",
-//     textAlign: "center",
-//   },
-//   foodPrice: {
-//     fontSize: 14,
-//     fontWeight: "bold",
-//     marginVertical: 5,
-//     color: "#FF5A5F",
-//   },
+  // foodName: {
+  //   fontSize: 16,
+  //   fontWeight: "bold",
+  //   textAlign: "center",
+  // },
+  // foodType: {
+  //   fontSize: 12,
+  //   color: "gray",
+  //   textAlign: "center",
+  // },
+  // foodPrice: {
+  //   fontSize: 14,
+  //   fontWeight: "bold",
+  //   marginVertical: 5,
+  //   color: "#FF5A5F",
+  // },
 //   quantityContainer: {
 //     flexDirection: "row",
 //     alignItems: "center",
@@ -205,10 +205,10 @@
 //     color: "white",
 //     fontWeight: "bold",
 //   },
-//   quantityText: {
-//     fontSize: 16,
-//     fontWeight: "bold",
-//   },
+  // quantityText: {
+  //   fontSize: 16,
+  //   fontWeight: "bold",
+  // },
 //   footer: {
 //     flexDirection: "row",
 //     justifyContent: "space-between",
@@ -250,6 +250,7 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view
 import { NetPrinter, BLEPrinter } from "react-native-printer";
 import { NetworkInfo } from "react-native-network-info";
 import { iconpathurl } from "../../../assest/iconpath";
+import { colors } from "../../../utlis/colors";
 
 // Sample Food Data
 const foodItems = [
@@ -553,5 +554,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderTopWidth: 1,
     borderTopColor: "#E5E5E5",
+  },
+  foodName: {
+    fontSize: 16,
+    fontWeight: "bold",
+    textAlign: "center",
+  },
+  foodType: {
+    fontSize: 12,
+    color: "gray",
+    textAlign: "center",
+  },
+  foodPrice: {
+    fontSize: 14,
+    fontWeight: "bold",
+    marginVertical: 5,
+    color: "#FF5A5F",
+  },
+  quantityText: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color:colors.black
   },
 });
