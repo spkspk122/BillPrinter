@@ -48,7 +48,7 @@ export default function Login() {
                 validationSchema={validationSchema}
                 onSubmit={(values) => {
                   console.log("Login Data:", values);
-                  navigationServices.navigateAndReset(SCREENS.HOME)
+                  navigationServices.navigateAndReset(SCREENS.BOTTOMTAB)
                 }}
               >
                 {({ handleChange, handleBlur, handleSubmit, values, errors, touched }) => (

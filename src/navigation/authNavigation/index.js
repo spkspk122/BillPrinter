@@ -21,7 +21,25 @@ const AuthNavigation = () => {
       animation:'fade'
     },
     {
-      id: 2,
+      id: 3,
+      name: SCREENS?.BOTTOMTAB,
+      component: screenNames?.AppTabs,
+      animation:'fade'
+    },
+    {
+      id: 4,
+      name: SCREENS?.INVESTEDAMOUNT,
+      component: screenNames?.Investment,
+      animation:'fade'
+    },
+      {
+      id: 5,
+      name: SCREENS?.ORDERLIST,
+      component: screenNames?.OrderList,
+      animation:'fade'
+    },
+      {
+      id: 5,
       name: SCREENS?.HOME,
       component: screenNames?.Home,
       animation:'fade'

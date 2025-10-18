@@ -9,13 +9,24 @@ buildscript {
 
         // We use NDK 23 which has both M1 support and is the side-by-side NDK version from AGP.
         ndkVersion = "23.1.7779620"
+          // ✅ Add this line
+        kotlinVersion = "1.8.22"
     }
     repositories {
         google()
         mavenCentral()
+        maven { url 'https://www.jitpack.io' } // 👈 Add JitPack here too
     }
     dependencies {
         classpath("com.android.tools.build:gradle:7.3.1")
         classpath("com.facebook.react:react-native-gradle-plugin")
+    }
+}
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+        maven { url 'https://www.jitpack.io' } // 👈 Add this for modules like react-native-printer
     }
 }
