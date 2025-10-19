@@ -2,42 +2,56 @@ import { createSlice } from "@reduxjs/toolkit";
 import endpoints from "../../apiServices/endpoint";
 import request from "../../apiServices";
 
+const initialState = {
+  data: [],
+};
 
 export const authSlice = createSlice({
   name: "auth",
-  initialState: {
-    userData:[],
-    token: "",
-  },
+  initialState,
   reducers: {
-    login: (state, action) => {
-      state.userData = { ...action.payload };
-      state.token = action?.payload;
+    addOrUpdateInvestment: (state, action) => {
+      const newItems = Array.isArray(action.payload) ? action.payload : [action.payload];
+
+      // Merge existing data with new items based on unique id
+      const updatedData = [...state.data];
+
+      newItems.forEach(item => {
+        const existingIndex = updatedData.findIndex(i => i.id === item.id);
+        if (existingIndex >= 0) {
+          // Update existing item if id matches
+          updatedData[existingIndex] = { ...updatedData[existingIndex], ...item };
+        } else {
+          // Append new item if id is unique
+          updatedData.push({ ...item });
+        }
+      });
+
+      // Return new state immutably
+      return { ...state, data: updatedData };
     },
   },
 });
-/*---------------------auth api calls--------------------------*/
+
+/*--------------------- API call example --------------------------*/
 export const loginApi = async (data) => {
   try {
     const res = await request({
       url: endpoints?.EndPoints?.products,
       method: endpoints.ApiMethods.GET,
-      headers: {
-        data,
-      },
+      headers: { data },
     });
     return res;
   } catch (error) {
-    // Handle errors if needed
     console.error("Error in loginApi:", error);
-    throw error; // Re-throw the error to be caught by the caller
+    throw error;
   }
 };
 
-export const {
-login
-} = authSlice.actions;
+// Export actions
+export const { addOrUpdateInvestment } = authSlice.actions;
 
-// export const token = (state) => state?.authSlice?.accessToken;
+// Selector example
+export const selectInvestments = (state) => state.auth.data;
 
 export default authSlice.reducer;

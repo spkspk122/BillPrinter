@@ -39,14 +39,34 @@ const AuthNavigation = () => {
       animation:'fade'
     },
       {
-      id: 5,
+      id: 6,
       name: SCREENS?.HOME,
       component: screenNames?.Home,
       animation:'fade'
     },
+       {
+      id: 7,
+      name: SCREENS?.OREDERTAKING,
+      component: screenNames?.CartScreen,
+      animation:'fade'
+    },
+
+       {
+      id: 8,
+      name: SCREENS?.PRINT,
+      component: screenNames?.CheckoutScreen,
+      animation:'fade'
+    },
+    {
+      id:9,
+        name: SCREENS?.Report,
+      component: screenNames?.SalesReportScreen,
+      animation:'fade'
+    }
+    
   ];
   return (
-    <Stack.Navigator initialRouteName={SCREENS.SPLASH}>
+    <Stack.Navigator initialRouteName={SCREENS.HOME}>
       {authScreens?.map((item, i) => (
         <Stack.Screen
           name={item?.name}

@@ -1,53 +1,26 @@
-import React, { useEffect } from "react";
-import {
-  Button,
-  Image,
-  StyleSheet,
-  Text,
-  View,
-  ImageBackground,
-} from "react-native";
-import { string } from "../../../constant/strings";
-import { baseStyle } from "../../../utlis/baseStyle.js/theme";
-import { colors } from "../../../utlis/colors";
-import { NativeModules } from "react-native";
-import CustomSafeArea from "../../../components/CustomSafeArea";
-import { iconpathurl } from "../../../assest/iconpath";
-import { moderateVerticalScale } from "react-native-size-matters";
-import { heightPercentageToDP } from "react-native-responsive-screen";
-import navigationServices from "../../../navigation/navigationServices";
-import { SCREENS } from "../../../navigation/screens";
-const Splash = () => {
+import React, { useEffect } from 'react';
+import { View, Text, Image, StyleSheet } from 'react-native';
+import navigationServices from '../../../navigation/navigationServices';
+import { SCREENS } from '../../../navigation/screens';
+
+export default function SplashScreen({ navigation }) {
   useEffect(() => {
-    setTimeout(() => {
-      navigationServices.navigateAndReset(SCREENS.LOGIN);
-    }, 3000);
+    const timer = setTimeout(() => {
+      navigationServices?.navigateAndReset(SCREENS?.LOGIN)
+    }, 2000);
+    return () => clearTimeout(timer);
   }, []);
+
   return (
-    <CustomSafeArea backgroundColor={colors?.redFF} style={styles?.container}>
-      <ImageBackground source={iconpathurl.Splash} style={styles?.container}>
-        <View style={styles?.subContainer}>
-          <Text
-            style={[
-              baseStyle.txtStyleIntersBold("3%", colors.whiteFF),
-              { fontWeight: "900" },
-            ]}
-          >
-            {string?.splash}
-          </Text>
-        </View>
-      </ImageBackground>
-    </CustomSafeArea>
+    <View style={styles.container}>
+      <Image source={require('../../../assest/images/logo.png')} style={styles.logo} />
+      <Text style={styles.text}>Ezo Billing</Text>
+    </View>
   );
-};
+}
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  subContainer: {
-    alignItems: "center",
-    flex: 0.25,
-    justifyContent: "flex-end",
-  },
+  container: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFF' },
+  logo: { width: 120, height: 120 },
+  text: { marginTop: 20, fontSize: 28, fontWeight: 'bold', color: '#FF5A5F' }
 });
-export default Splash;
