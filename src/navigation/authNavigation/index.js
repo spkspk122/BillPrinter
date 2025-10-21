@@ -66,7 +66,7 @@ const AuthNavigation = () => {
     
   ];
   return (
-    <Stack.Navigator initialRouteName={SCREENS.HOME}>
+    <Stack.Navigator initialRouteName={SCREENS.SPLASH}>
       {authScreens?.map((item, i) => (
         <Stack.Screen
           name={item?.name}

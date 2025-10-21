@@ -14,7 +14,7 @@ export default function SplashScreen({ navigation }) {
   return (
     <View style={styles.container}>
       <Image source={require('../../../assest/images/logo.png')} style={styles.logo} />
-      <Text style={styles.text}>Ezo Billing</Text>
+      <Text style={styles.text}>Billing</Text>
     </View>
   );
 }

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,31 +6,51 @@ import {
   TouchableOpacity,
   Alert,
   ScrollView,
+  Platform,
+  PermissionsAndroid,
 } from "react-native";
 import { BarChart, XAxis, YAxis, Grid } from "react-native-svg-charts";
 import * as scale from "d3-scale";
 import RNFS from "react-native-fs";
 import XLSX from "xlsx";
-
-const salesData = [
-  { product: "Chicken Rice", date: "2025-10-15", count: 25 },
-  { product: "Shawarma", date: "2025-10-15", count: 40 },
-  { product: "Burger", date: "2025-10-15", count: 20 },
-  { product: "Chicken Rice", date: "2025-10-16", count: 30 },
-  { product: "Shawarma", date: "2025-10-16", count: 35 },
-  { product: "Burger", date: "2025-10-16", count: 15 },
-  { product: "Chicken Rice", date: "2025-10-19", count: 50 },
-  { product: "Shawarma", date: "2025-10-19", count: 60 },
-  { product: "Burger", date: "2025-10-19", count: 25 },
-  { product: "Sanwitch", date: "2025-10-19", count: 25 },
-];
+import { useSelector } from "react-redux";
 
 export default function SalesReportScreen() {
   const [viewType, setViewType] = useState("daily");
+  const salesData = useSelector((state) => state.authSlice?.salesData || []);
+
+  // ===== Request storage permission on Android =====
+  const requestStoragePermission = async () => {
+    if (Platform.OS === "android") {
+      try {
+        if (Platform.Version >= 33) {
+          // Android 13+ doesn't need WRITE_EXTERNAL_STORAGE for Downloads
+          return true;
+        } else if (Platform.Version >= 29) {
+          // Android 10-12 use scoped storage, still need WRITE_EXTERNAL_STORAGE
+          const granted = await PermissionsAndroid.request(
+            PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE
+          );
+          return granted === PermissionsAndroid.RESULTS.GRANTED;
+        } else {
+          const granted = await PermissionsAndroid.requestMultiple([
+            PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
+            PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
+          ]);
+          return Object.values(granted).every(
+            (status) => status === PermissionsAndroid.RESULTS.GRANTED
+          );
+        }
+      } catch (err) {
+        console.warn("Storage permission error:", err);
+        return false;
+      }
+    }
+    return true;
+  };
 
   const groupedData = useMemo(() => {
     const today = new Date();
-
     const filtered = salesData.filter((item) => {
       const date = new Date(item.date);
       if (viewType === "daily") return date.toDateString() === today.toDateString();
@@ -49,7 +69,7 @@ export default function SalesReportScreen() {
       product,
       count,
     }));
-  }, [viewType]);
+  }, [viewType, salesData]);
 
   const data = groupedData.map((i) => i.count);
   const labels = groupedData.map((i) => i.product);
@@ -60,36 +80,34 @@ export default function SalesReportScreen() {
       return;
     }
 
+    const hasPermission = await requestStoragePermission();
+    if (!hasPermission) {
+      Alert.alert("Permission Denied", "Storage permission is required to export Excel.");
+      return;
+    }
+
     try {
       const wsData = [["Product", "Count", "Period"]];
       groupedData.forEach((row) => wsData.push([row.product, row.count, viewType]));
 
       const ws = XLSX.utils.aoa_to_sheet(wsData);
-
-      const range = XLSX.utils.decode_range(ws['!ref']);
-      for (let R = range.s.r; R <= range.e.r; ++R) {
-        for (let C = range.s.c; C <= range.e.c; ++C) {
-          const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
-          if (!ws[cellAddress]) continue;
-
-          ws[cellAddress].s = {
-            alignment: { horizontal: "center", vertical: "center" },
-            font: R === 0 ? { bold: true } : {},
-            fill: R === 0 ? { fgColor: { rgb: "DDDDDD" } } : {},
-          };
-        }
-      }
-
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "ProductCounts");
 
-      const wbout = XLSX.write(wb, { type: "binary", bookType: "xlsx" });
-      const filePath = `${RNFS.DownloadDirectoryPath}/Product_Count_Report_${viewType}.xlsx`;
+      // Generate base64 string
+      const wbout = XLSX.write(wb, { type: "base64", bookType: "xlsx" });
 
-      await RNFS.writeFile(filePath, wbout, "ascii");
+      const fileName = `Product_Count_Report_${viewType}_${Date.now()}.xlsx`;
+      const filePath =
+        Platform.OS === "android"
+          ? `${RNFS.DownloadDirectoryPath}/${fileName}`
+          : `${RNFS.DocumentDirectoryPath}/${fileName}`;
+
+      await RNFS.writeFile(filePath, wbout, "base64");
+
       Alert.alert("Success", `Report exported to:\n${filePath}`);
     } catch (error) {
-      console.log(error);
+      console.log("Excel export error:", error);
       Alert.alert("Error", "Failed to export file");
     }
   };
@@ -192,7 +210,6 @@ const styles = StyleSheet.create({
   activeTab: { backgroundColor: "#FF5A5F" },
   tabText: { color: "#333", fontWeight: "600" },
   activeTabText: { color: "#fff" },
-
   card: {
     backgroundColor: "#fff",
     borderRadius: 12,
@@ -201,9 +218,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   chartTitle: { fontSize: 18, fontWeight: "600", marginBottom: 10 },
-
   noData: { textAlign: "center", color: "gray", paddingVertical: 20 },
-
   summaryContainer: {
     flexDirection: "row",
     flexWrap: "wrap",

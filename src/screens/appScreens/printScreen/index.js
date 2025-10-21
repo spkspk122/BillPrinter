@@ -3,30 +3,32 @@ import {
   View,
   Text,
   StyleSheet,
-  TextInput,
+  FlatList,
   TouchableOpacity,
   SafeAreaView,
-  FlatList,
   Alert,
   PermissionsAndroid,
   Platform,
 } from "react-native";
 import { BLEPrinter } from "react-native-thermal-receipt-printer";
 import RNPrint from "react-native-print";
+import { useDispatch } from "react-redux";
+import { addSales } from "../../../redux/slice/authSlice"; // adjust path
 
 export default function CheckoutScreen({ route }) {
   const { cartItems } = route.params || { cartItems: [] };
   const [connectedPrinter, setConnectedPrinter] = useState(null);
+  const dispatch = useDispatch();
 
   const totalPrice = cartItems.reduce(
     (total, item) => total + item.quantity * item.price,
     0
   );
 
-  // Generate Order ID
   const orderId = `ORD-${Date.now().toString().slice(-6)}`;
+  const todayDate = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
 
-  // ✅ Request Bluetooth Permissions
+  // ======= Permissions & Printer Connection =======
   const requestBluetoothPermissions = async () => {
     if (Platform.OS === "android") {
       try {
@@ -35,29 +37,15 @@ export default function CheckoutScreen({ route }) {
             PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
             PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
           ]);
-          const allGranted = Object.values(granted).every(
+          return Object.values(granted).every(
             (status) => status === PermissionsAndroid.RESULTS.GRANTED
           );
-          if (!allGranted) {
-            Alert.alert(
-              "Permission Required",
-              "Bluetooth permissions are required to connect printers."
-            );
-            return false;
-          }
         } else {
           const granted = await PermissionsAndroid.request(
             PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
           );
-          if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
-            Alert.alert(
-              "Permission Required",
-              "Location permission is required to scan Bluetooth printers."
-            );
-            return false;
-          }
+          return granted === PermissionsAndroid.RESULTS.GRANTED;
         }
-        return true;
       } catch (err) {
         console.warn("Permission error:", err);
         return false;
@@ -66,7 +54,6 @@ export default function CheckoutScreen({ route }) {
     return true;
   };
 
-  // ✅ Connect to Bluetooth Printer
   const connectBluetoothPrinter = async () => {
     try {
       const hasPermission = await requestBluetoothPermissions();
@@ -91,8 +78,21 @@ export default function CheckoutScreen({ route }) {
     }
   };
 
-  // ✅ Print via Bluetooth Printer
+  // ======= Dispatch sales data to Redux =======
+  const storeSalesInRedux = () => {
+    const salesPayload = cartItems.map((item) => ({
+      product: item.name,
+      date: todayDate,
+      count: item.quantity,
+    }));
+
+    dispatch(addSales(salesPayload));
+  };
+
+  // ======= Print Functions =======
   const printBluetoothReceipt = async () => {
+      // ✅ Store sales in Redux after successful print
+      storeSalesInRedux();
     if (!connectedPrinter) {
       Alert.alert("Printer Not Connected", "Please connect a printer first.");
       return;
@@ -102,16 +102,17 @@ export default function CheckoutScreen({ route }) {
       let printData = `<C>===== ORDER RECEIPT =====</C>\n`;
       printData += `<C>Order ID: ${orderId}</C>\n`;
       printData += `--------------------------\n`;
-
       cartItems.forEach((item) => {
         printData += `<L>${item.quantity} x ${item.name} - ₹${item.price * item.quantity}</L>\n`;
       });
-
       printData += `--------------------------\n`;
       printData += `<R>Total: ₹ ${totalPrice}</R>\n`;
       printData += `<C>Thank you for your order!</C>\n`;
 
       await BLEPrinter.printText(printData);
+
+    
+
       Alert.alert("Success", `Receipt Printed via Bluetooth!\nOrder ID: ${orderId}`);
     } catch (error) {
       console.error("Bluetooth Printing Error:", error);
@@ -119,7 +120,6 @@ export default function CheckoutScreen({ route }) {
     }
   };
 
-  // ✅ Print via Wi-Fi / Network Printer
   const printWiFiReceipt = async () => {
     let printHTML = `
       <h2 style="text-align:center;">===== ORDER RECEIPT =====</h2>
@@ -127,14 +127,11 @@ export default function CheckoutScreen({ route }) {
       <hr />
       <ul>
     `;
-
     cartItems.forEach((item) => {
       printHTML += `<li>${item.quantity} x ${item.name} - ₹${item.price * item.quantity}</li>`;
     });
-
     printHTML += `
       </ul>
-      <hr />
       <hr />
       <p style="text-align:right;"><b>Total: ₹ ${totalPrice}</b></p>
       <p style="text-align:center;">Thank you for your order!</p>
@@ -142,6 +139,10 @@ export default function CheckoutScreen({ route }) {
 
     try {
       await RNPrint.print({ html: printHTML });
+
+      // ✅ Store sales in Redux after successful print
+      storeSalesInRedux();
+
       Alert.alert("Success", `Receipt Printed via Wi-Fi!\nOrder ID: ${orderId}`);
     } catch (error) {
       console.error("Wi-Fi Printing Error:", error);
@@ -183,7 +184,10 @@ export default function CheckoutScreen({ route }) {
         <Text style={styles.printBtnText}>Print via Bluetooth</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={[styles.printBtn, { backgroundColor: "#3498db" }]} onPress={printWiFiReceipt}>
+      <TouchableOpacity
+        style={[styles.printBtn, { backgroundColor: "#3498db" }]}
+        onPress={printWiFiReceipt}
+      >
         <Text style={styles.printBtnText}>Print via Wi-Fi</Text>
       </TouchableOpacity>
     </SafeAreaView>
@@ -223,14 +227,6 @@ const styles = StyleSheet.create({
   },
   totalText: { fontSize: 16, fontWeight: "bold" },
   totalPrice: { fontSize: 16, fontWeight: "bold", color: "#FF5A5F" },
-  input: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 15,
-    backgroundColor: "#f7f7f7",
-  },
   connectBtn: {
     backgroundColor: "#27ae60",
     padding: 15,

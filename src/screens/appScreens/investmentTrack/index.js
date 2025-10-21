@@ -6,160 +6,216 @@ import {
   TouchableOpacity,
   ScrollView,
   Dimensions,
+  Alert,
 } from "react-native";
+import { LineChart, Grid, XAxis, YAxis } from "react-native-svg-charts";
+import * as shape from "d3-shape";
+import { G, Circle, Text as SVGText } from "react-native-svg";
 import { useSelector } from "react-redux";
-import { BarChart, XAxis, YAxis, Grid } from "react-native-svg-charts";
-import * as scale from "d3-scale";
+import RNFS from "react-native-fs";
+import XLSX from "xlsx";
+import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 
 const filters = ["weekly", "monthly", "yearly"];
-const { width: screenWidth } = Dimensions.get("window");
+const { width } = Dimensions.get("window");
 
 export default function InvestmentReport() {
   const [selectedFilter, setSelectedFilter] = useState("weekly");
-  const investmentData = useSelector(state => state.authSlice?.data || []);
-  console.log(investmentData,"!!!!")
+  const investmentData = useSelector((state) => state?.authSlice?.data || []);
 
-  const getWeekNumber = (date) => Math.ceil(date.getDate() / 7);
-
+  // 📊 Filtered & Grouped Data
   const filteredData = useMemo(() => {
-    if (!investmentData.length) return [];
+    const grouped = {};
 
-    if (selectedFilter === "weekly") {
-      const weekData = {};
-      investmentData.forEach(item => {
-        const itemDate = new Date(item.date);
-        const weekStart = new Date(itemDate);
-        weekStart.setDate(itemDate.getDate() - ((itemDate.getDay() + 6) % 7)); // Monday start
+    investmentData.forEach((item) => {
+      const d = new Date(item.date);
+      let key, label;
+
+      if (selectedFilter === "weekly") {
+        // Get start of week (Sunday)
+        const weekStart = new Date(d);
+        weekStart.setDate(d.getDate() - d.getDay());
         const weekEnd = new Date(weekStart);
         weekEnd.setDate(weekStart.getDate() + 6);
-        const key = `${weekStart.toISOString().slice(0,10)}_${weekEnd.toISOString().slice(0,10)}`;
 
-        if (!weekData[key]) {
-          weekData[key] = {
-            invested: 0,
-            returns: 0,
-            label: `${weekStart.getDate()}-${weekEnd.getDate()} ${weekStart.toLocaleString("default", { month: "short" })}`
-          };
-        }
-        weekData[key].invested += item.invested;
-        weekData[key].returns += item.returns;
-      });
-      return Object.values(weekData);
-    }
+        key = `${weekStart.toISOString().split("T")[0]}_${weekEnd
+          .toISOString()
+          .split("T")[0]}`;
+        label = `${weekStart.toLocaleString("default", {
+          month: "short",
+        })} ${weekStart.getDate()}–${weekEnd.getDate()}`;
+      } else if (selectedFilter === "monthly") {
+        key = `${d.getMonth()}-${d.getFullYear()}`;
+        label = d.toLocaleString("default", { month: "short" });
+      } else {
+        key = `${d.getFullYear()}`;
+        label = `${d.getFullYear()}`;
+      }
 
-    if (selectedFilter === "monthly") {
-      const monthData = {};
-      investmentData.forEach(item => {
-        const itemDate = new Date(item.date);
-        const weekNumber = getWeekNumber(itemDate);
-        const key = `${itemDate.getFullYear()}-${itemDate.getMonth()}-W${weekNumber}`;
-        if (!monthData[key]) {
-          monthData[key] = {
-            invested: 0,
-            returns: 0,
-            label: `Week ${weekNumber}`
-          };
-        }
-        monthData[key].invested += item.invested;
-        monthData[key].returns += item.returns;
-      });
-      return Object.values(monthData);
-    }
+      if (!grouped[key]) grouped[key] = { invested: 0, returns: 0, label };
+      grouped[key].invested += item.invested;
+      grouped[key].returns += item.returns;
+    });
 
-    if (selectedFilter === "yearly") {
-      const yearData = {};
-      investmentData.forEach(item => {
-        const itemDate = new Date(item.date);
-        const key = `${itemDate.getFullYear()}-${itemDate.getMonth()}`;
-        if (!yearData[key]) {
-          yearData[key] = {
-            invested: 0,
-            returns: 0,
-            label: itemDate.toLocaleString("default", { month: "short" })
-          };
-        }
-        yearData[key].invested += item.invested;
-        yearData[key].returns += item.returns;
-      });
-      return Object.values(yearData);
-    }
-
-    return [];
+    return Object.values(grouped);
   }, [selectedFilter, investmentData]);
 
-  const labels = filteredData.map(i => i.label);
-  const invested = filteredData.map(i => i.invested);
-  const returns = filteredData.map(i => i.returns);
+  const labels = filteredData.map((i) => i.label);
+  const invested = filteredData.map((i) => i.invested);
+  const returns = filteredData.map((i) => i.returns);
 
-  const maxValue = Math.max(...[...invested, ...returns, 1]);
-  const barWidth = 20;
-  const spacing = 10;
-  const groupWidth = barWidth * 2 + spacing;
-  const chartWidth = Math.max(filteredData.length * groupWidth, screenWidth - 80);
+  const contentInset = { top: 30, bottom: 30, left: 20, right: 20 };
+
+  // 🎯 Decorator (value points on chart)
+  const Decorator = ({ x, y, data, color }) => (
+    <G>
+      {data.map((value, index) => (
+        <React.Fragment key={index}>
+          <Circle
+            cx={x(index)}
+            cy={y(value)}
+            r={4}
+            stroke={color}
+            fill="white"
+            strokeWidth={2}
+          />
+          <SVGText
+            x={x(index)}
+            y={y(value) - 12}
+            fontSize={10}
+            fill={color}
+            fontWeight="600"
+            alignmentBaseline="middle"
+            textAnchor="middle"
+          >
+            {value.toLocaleString()}
+          </SVGText>
+        </React.Fragment>
+      ))}
+    </G>
+  );
+
+  // 📥 Export Function (Excel)
+  const exportToExcel = () => {
+    try {
+      if (!investmentData || investmentData.length === 0) {
+        Alert.alert("No Data", "No investment data to export.");
+        return;
+      }
+
+      const exportData = investmentData.map((item) => ({
+        Date: item.date,
+        Invested: item.invested,
+        Returns: item.returns,
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Investments");
+
+      const wbout = XLSX.write(wb, { type: "binary", bookType: "xlsx" });
+      const path = `${RNFS.DownloadDirectoryPath}/Investment_Report_${selectedFilter}_${Date.now()}.xlsx`;
+
+      const buffer = new ArrayBuffer(wbout.length);
+      const view = new Uint8Array(buffer);
+      for (let i = 0; i < wbout.length; ++i) {
+        view[i] = wbout.charCodeAt(i) & 0xff;
+      }
+
+      RNFS.writeFile(path, String.fromCharCode(...view), "ascii")
+        .then(() => {
+          Alert.alert("Export Successful", `File saved to:\n${path}`);
+        })
+        .catch((err) => {
+          console.error("File write error", err);
+          Alert.alert("Error", "Failed to save Excel file.");
+        });
+    } catch (error) {
+      console.error("Export Error:", error);
+      Alert.alert("Error", "An unexpected error occurred while exporting.");
+    }
+  };
 
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.title}>Investment vs Returns</Text>
+      {/* Header + Export */}
+      <View style={styles.headerRow}>
+        <Text style={styles.title}>Investment vs Returns</Text>
 
+        <TouchableOpacity onPress={exportToExcel} style={styles.exportButton}>
+          <Icon name="file-excel" size={22} color="#2e7d32" />
+          <Text style={styles.exportText}>Export</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Filter Tabs */}
       <View style={styles.tabsContainer}>
-        {filters.map(filter => (
+        {filters.map((filter) => (
           <TouchableOpacity
             key={filter}
             style={[styles.tab, selectedFilter === filter && styles.activeTab]}
             onPress={() => setSelectedFilter(filter)}
           >
-            <Text style={[styles.tabText, selectedFilter === filter && styles.activeTabText]}>
+            <Text
+              style={[
+                styles.tabText,
+                selectedFilter === filter && styles.activeTabText,
+              ]}
+            >
               {filter.toUpperCase()}
             </Text>
           </TouchableOpacity>
         ))}
       </View>
 
-      {filteredData.length === 0 ? (
-        <Text style={styles.noData}>No data for selected filter</Text>
-      ) : (
-        <ScrollView horizontal>
-          <View style={{ flexDirection: "row", paddingRight: 10, height: 300 }}>
-            <YAxis
-              data={[...invested, ...returns]}
-              contentInset={{ top: 30, bottom: 20 }}
-              svg={{ fontSize: 10, fill: "gray" }}
-              numberOfTicks={6}
-              style={{ width: 40, marginBottom: 40 }}
-            />
+      {/* Chart Section */}
+      <View style={{ height: 320, flexDirection: "row", paddingRight: 10 }}>
+        <YAxis
+          data={[...invested, ...returns]}
+          contentInset={contentInset}
+          svg={{ fontSize: 10, fill: "gray" }}
+          numberOfTicks={6}
+          formatLabel={(value) => value.toLocaleString()}
+          style={{ marginBottom: 30 }}
+        />
 
-            <View style={{ flexDirection: "row" }}>
-              {/* Invested Bars */}
-              <BarChart
-                style={{ height: 300, width: chartWidth / 2 }}
-                data={invested}
-                svg={{ fill: "#4caf50" }}
-                contentInset={{ top: 30, bottom: 20 }}
-                spacingInner={0.4}
-                yMax={maxValue}
-              />
-              {/* Returns Bars */}
-              <BarChart
-                style={{ height: 300, width: chartWidth / 2, marginLeft: -barWidth }}
-                data={returns}
-                svg={{ fill: "#ff5722" }}
-                contentInset={{ top: 30, bottom: 20 }}
-                spacingInner={0.4}
-                yMax={maxValue}
-              />
-            </View>
+        <View style={{ flex: 1, marginLeft: 10 }}>
+          <LineChart
+            style={{ flex: 1 }}
+            data={invested}
+            svg={{ stroke: "#4caf50", strokeWidth: 3 }}
+            contentInset={contentInset}
+            curve={shape.curveMonotoneX}
+            yMin={0}
+            yMax={Math.max(...invested, ...returns) * 1.15}
+          >
+            <Grid />
+            <Decorator data={invested} color="#4caf50" />
+          </LineChart>
 
-            <XAxis
-              style={{ marginTop: 10, height: 50, width: chartWidth }}
-              data={labels}
-              formatLabel={(value, index) => labels[index]}
-              scale={scale.scaleBand}
-              svg={{ fontSize: 12, fill: "gray", rotation: 60, originY: 15, y: 5 }}
-            />
-          </View>
-        </ScrollView>
-      )}
+          <LineChart
+            style={StyleSheet.absoluteFill}
+            data={returns}
+            svg={{ stroke: "#ff5722", strokeWidth: 3 }}
+            contentInset={contentInset}
+            curve={shape.curveMonotoneX}
+            yMin={0}
+            yMax={Math.max(...invested, ...returns) * 1.15}
+          >
+            <Decorator data={returns} color="#ff5722" />
+          </LineChart>
 
+          <XAxis
+            style={{ marginHorizontal: -10, height: 30 }}
+            data={labels}
+            formatLabel={(value, index) => labels[index]}
+            contentInset={{ left: 20, right: 20 }}
+            svg={{ fontSize: 12, fill: "gray" }}
+          />
+        </View>
+      </View>
+
+      {/* Legend */}
       <View style={styles.legendContainer}>
         <View style={styles.legendBox}>
           <View style={[styles.colorBox, { backgroundColor: "#4caf50" }]} />
@@ -176,14 +232,43 @@ export default function InvestmentReport() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 15, backgroundColor: "#F9FAFB" },
-  title: { fontSize: 22, fontWeight: "bold", marginBottom: 15 },
+  headerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 15,
+  },
+  title: { fontSize: 22, fontWeight: "bold" },
+  exportButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#E8F5E9",
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+  },
+  exportText: {
+    color: "#2e7d32",
+    fontWeight: "600",
+    marginLeft: 5,
+    fontSize: 14,
+  },
   tabsContainer: { flexDirection: "row", marginBottom: 15 },
-  tab: { paddingVertical: 8, paddingHorizontal: 15, backgroundColor: "#EAEAEA", borderRadius: 8, marginRight: 10 },
+  tab: {
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    backgroundColor: "#EAEAEA",
+    borderRadius: 8,
+    marginRight: 10,
+  },
   activeTab: { backgroundColor: "#FF5A5F" },
   tabText: { color: "#333", fontWeight: "600" },
   activeTabText: { color: "#fff" },
-  noData: { textAlign: "center", color: "gray", marginTop: 50 },
-  legendContainer: { flexDirection: "row", marginTop: 20 },
+  legendContainer: {
+    flexDirection: "row",
+    marginTop: 20,
+    alignSelf: "center",
+  },
   legendBox: { flexDirection: "row", alignItems: "center", marginRight: 20 },
   colorBox: { width: 20, height: 20, marginRight: 5 },
 });

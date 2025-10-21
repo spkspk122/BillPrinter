@@ -18,7 +18,7 @@ export default function LoginScreen({ navigation }) {
       <Image source={require('../../../assest/images/logo.png')} style={styles.logoImage} />
 
       {/* App Name */}
-      <Text style={styles.logoText}>Ezo Billing</Text>
+      <Text style={styles.logoText}> Billing</Text>
 
       <Formik
         initialValues={{ email: '', password: '' }}

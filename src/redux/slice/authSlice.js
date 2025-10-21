@@ -4,6 +4,7 @@ import request from "../../apiServices";
 
 const initialState = {
   data: [],
+   salesData: [],
 };
 
 export const authSlice = createSlice({
@@ -30,6 +31,11 @@ export const authSlice = createSlice({
       // Return new state immutably
       return { ...state, data: updatedData };
     },
+    addSales: (state, action) => {
+      console.log(action.payload,"add salse")
+      // action.payload should be an array of { product, date, count }
+      state.salesData.push(...action.payload);
+    },
   },
 });
 
@@ -49,7 +55,7 @@ export const loginApi = async (data) => {
 };
 
 // Export actions
-export const { addOrUpdateInvestment } = authSlice.actions;
+export const { addOrUpdateInvestment,addSales } = authSlice.actions;
 
 // Selector example
 export const selectInvestments = (state) => state.auth.data;
