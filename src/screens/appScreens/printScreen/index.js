@@ -14,6 +14,9 @@ import { BLEPrinter } from "react-native-thermal-receipt-printer";
 import RNPrint from "react-native-print";
 import { useDispatch } from "react-redux";
 import { addSales } from "../../../redux/slice/authSlice"; // adjust path
+import firestore from '@react-native-firebase/firestore';
+import firebase from '@react-native-firebase/app'; 
+import { store } from "../../../redux/store";
 
 export default function CheckoutScreen({ route }) {
   const { cartItems } = route.params || { cartItems: [] };
@@ -26,9 +29,9 @@ export default function CheckoutScreen({ route }) {
   );
 
   const orderId = `ORD-${Date.now().toString().slice(-6)}`;
-  const todayDate = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
+  const todayDate = new Date().toISOString().slice(0, 10);
 
-  // ======= Permissions & Printer Connection =======
+  // ======= Bluetooth Permissions =======
   const requestBluetoothPermissions = async () => {
     if (Platform.OS === "android") {
       try {
@@ -54,6 +57,7 @@ export default function CheckoutScreen({ route }) {
     return true;
   };
 
+  // ======= Connect Bluetooth Printer =======
   const connectBluetoothPrinter = async () => {
     try {
       const hasPermission = await requestBluetoothPermissions();
@@ -68,7 +72,9 @@ export default function CheckoutScreen({ route }) {
       }
 
       const printer = printers[0];
-      await BLEPrinter.connectPrinter(printer.inner_mac_address);
+   await BLEPrinter.connectPrinter(
+  printer.macAddress || printer.inner_mac_address
+);
       setConnectedPrinter(printer);
 
       Alert.alert("Connected", `Bluetooth Printer: ${printer.device_name}`);
@@ -78,48 +84,44 @@ export default function CheckoutScreen({ route }) {
     }
   };
 
-  // ======= Dispatch sales data to Redux =======
-  const storeSalesInRedux = () => {
-    const salesPayload = cartItems.map((item) => ({
-      product: item.name,
+// ======= Print Bluetooth Receipt =======
+const printBluetoothReceipt = async () => {
+  try {
+    // if (!connectedPrinter) {
+    //   Alert.alert("Printer Not Connected", "Please connect a printer first.");
+    //   return;
+    // }
+
+    let printData = `<C>===== ORDER RECEIPT =====</C>\n`;
+    printData += `<C>Order ID: ${orderId}</C>\n`;
+    printData += `Date: ${todayDate}\n`;
+    printData += `--------------------------\n`;
+    cartItems.forEach((item) => {
+      printData += `<L>${item.quantity} x ${item.name} - ₹${item.price * item.quantity}</L>\n`;
+    });
+    printData += `--------------------------\n`;
+    printData += `<R><B>Total: ₹ ${totalPrice}</B></R>\n`;
+    printData += `<C>Thank you for your order!</C>\n`;
+
+    await BLEPrinter.printText(printData);
+
+    // ✅ Save sale data to Firestore
+    await firestore().collection("sales").add({
+      orderId,
+      items: cartItems,
+      totalPrice,
       date: todayDate,
-      count: item.quantity,
-    }));
+    });
 
-    dispatch(addSales(salesPayload));
-  };
+    Alert.alert("Success", "Printed & Saved Successfully ✅");
 
-  // ======= Print Functions =======
-  const printBluetoothReceipt = async () => {
-      // ✅ Store sales in Redux after successful print
-      storeSalesInRedux();
-    if (!connectedPrinter) {
-      Alert.alert("Printer Not Connected", "Please connect a printer first.");
-      return;
-    }
+  } catch (error) {
+    console.error("Bluetooth Printing Error:", error);
+    Alert.alert("Error", "Failed to print via Bluetooth printer.");
+  }
+};
 
-    try {
-      let printData = `<C>===== ORDER RECEIPT =====</C>\n`;
-      printData += `<C>Order ID: ${orderId}</C>\n`;
-      printData += `--------------------------\n`;
-      cartItems.forEach((item) => {
-        printData += `<L>${item.quantity} x ${item.name} - ₹${item.price * item.quantity}</L>\n`;
-      });
-      printData += `--------------------------\n`;
-      printData += `<R>Total: ₹ ${totalPrice}</R>\n`;
-      printData += `<C>Thank you for your order!</C>\n`;
-
-      await BLEPrinter.printText(printData);
-
-    
-
-      Alert.alert("Success", `Receipt Printed via Bluetooth!\nOrder ID: ${orderId}`);
-    } catch (error) {
-      console.error("Bluetooth Printing Error:", error);
-      Alert.alert("Error", "Failed to print via Bluetooth printer.");
-    }
-  };
-
+  // ======= Print Wi-Fi Receipt =======
   const printWiFiReceipt = async () => {
     let printHTML = `
       <h2 style="text-align:center;">===== ORDER RECEIPT =====</h2>
@@ -128,7 +130,9 @@ export default function CheckoutScreen({ route }) {
       <ul>
     `;
     cartItems.forEach((item) => {
-      printHTML += `<li>${item.quantity} x ${item.name} - ₹${item.price * item.quantity}</li>`;
+      printHTML += `<li>${item.quantity} x ${item.name} - ₹${
+        item.price * item.quantity
+      }</li>`;
     });
     printHTML += `
       </ul>
@@ -139,23 +143,24 @@ export default function CheckoutScreen({ route }) {
 
     try {
       await RNPrint.print({ html: printHTML });
+      Alert.alert("Printed", "Receipt printed successfully via Wi-Fi.");
 
-      // ✅ Store sales in Redux after successful print
-      storeSalesInRedux();
-
-      Alert.alert("Success", `Receipt Printed via Wi-Fi!\nOrder ID: ${orderId}`);
+    
     } catch (error) {
       console.error("Wi-Fi Printing Error:", error);
       Alert.alert("Error", "Failed to print via Wi-Fi printer.");
     }
   };
 
+  // ======= Render UI =======
   const renderItem = ({ item }) => (
     <View style={styles.itemRow}>
       <Text style={styles.itemText}>
         {item.name} x {item.quantity}
       </Text>
-      <Text style={styles.itemPrice}>₹{(item.quantity * item.price).toFixed(2)}</Text>
+      <Text style={styles.itemPrice}>
+        ₹{(item.quantity * item.price).toFixed(2)}
+      </Text>
     </View>
   );
 

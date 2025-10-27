@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "979367036371",
+    "project_id": "billing-app-3acf9",
+    "storage_bucket": "billing-app-3acf9.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:979367036371:android:4db00b4279f32da8059b26",
+        "android_client_info": {
+          "package_name": "com.eds_mobile_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyABZxlpAt5EQErFjhyeUx1DfPhsM54VaU0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

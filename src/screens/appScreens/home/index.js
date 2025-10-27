@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert } from 'react-native';
 import { useDispatch } from 'react-redux';
+import firestore from '@react-native-firebase/firestore';
 import navigationServices from '../../../navigation/navigationServices';
 import { SCREENS } from '../../../navigation/screens';
 import { addOrUpdateInvestment } from '../../../redux/slice/authSlice';
@@ -16,19 +17,40 @@ export default function HomeScreen() {
 
   const [invested, setInvested] = useState('');
   const [returns, setReturns] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSave = () => {
-    if (!invested || !returns) return alert('Enter both invested and returns');
+  const handleSave = async () => {
+    if (!invested || !returns) {
+      Alert.alert('Validation', 'Enter both invested and returns amounts');
+      return;
+    }
+
     const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-    dispatch(addOrUpdateInvestment({
+    const investmentData = {
       date: today,
       invested: Number(invested),
       returns: Number(returns),
-      id:new Date()
-    }));
-    alert('Saved!');
-    setInvested('');
-    setReturns('');
+      createdAt: firestore.FieldValue.serverTimestamp(),
+    };
+
+    try {
+      setLoading(true);
+
+      // 1️⃣ Add to Firestore
+      const docRef = await firestore().collection('investments').add(investmentData);
+
+      // 2️⃣ Dispatch to Redux
+      dispatch(addOrUpdateInvestment({ id: docRef.id, ...investmentData }));
+
+      Alert.alert('Success', 'Investment saved successfully!');
+      setInvested('');
+      setReturns('');
+    } catch (error) {
+      console.error('🔥 Firestore save error:', error);
+      Alert.alert('Error', 'Failed to save investment.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -59,8 +81,12 @@ export default function HomeScreen() {
           value={returns}
           onChangeText={setReturns}
         />
-        <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-          <Text style={styles.saveButtonText}>Save</Text>
+        <TouchableOpacity
+          style={[styles.saveButton, { opacity: loading ? 0.6 : 1 }]}
+          disabled={loading}
+          onPress={handleSave}
+        >
+          <Text style={styles.saveButtonText}>{loading ? 'Saving...' : 'Save'}</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>

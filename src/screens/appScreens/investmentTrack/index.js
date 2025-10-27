@@ -23,16 +23,38 @@ export default function InvestmentReport() {
   const [selectedFilter, setSelectedFilter] = useState("weekly");
   const investmentData = useSelector((state) => state?.authSlice?.data || []);
 
+  // ✅ SAFE DATE PARSER
+  const parseSafeDate = (value) => {
+    if (!value) return null;
+
+    // Firestore timestamp
+    if (value?.toDate) return value.toDate();
+
+    // Already JS Date
+    if (value instanceof Date) return value;
+
+    // If string DD/MM/YYYY → convert to YYYY-MM-DD
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(value)) {
+      const [day, month, year] = value.split("/");
+      return new Date(`${year}-${month}-${day}`);
+    }
+
+    // Normal ISO or timestamp string
+    const d = new Date(value);
+    return isNaN(d) ? null : d;
+  };
+
   // 📊 Filtered & Grouped Data
   const filteredData = useMemo(() => {
     const grouped = {};
 
     investmentData.forEach((item) => {
-      const d = new Date(item.date);
+      const d = parseSafeDate(item.date);
+      if (!d) return; // Skip invalid date entries ✅
+
       let key, label;
 
       if (selectedFilter === "weekly") {
-        // Get start of week (Sunday)
         const weekStart = new Date(d);
         weekStart.setDate(d.getDate() - d.getDay());
         const weekEnd = new Date(weekStart);
@@ -66,19 +88,11 @@ export default function InvestmentReport() {
 
   const contentInset = { top: 30, bottom: 30, left: 20, right: 20 };
 
-  // 🎯 Decorator (value points on chart)
   const Decorator = ({ x, y, data, color }) => (
     <G>
       {data.map((value, index) => (
         <React.Fragment key={index}>
-          <Circle
-            cx={x(index)}
-            cy={y(value)}
-            r={4}
-            stroke={color}
-            fill="white"
-            strokeWidth={2}
-          />
+          <Circle cx={x(index)} cy={y(value)} r={4} stroke={color} fill="white" strokeWidth={2} />
           <SVGText
             x={x(index)}
             y={y(value) - 12}
@@ -104,7 +118,7 @@ export default function InvestmentReport() {
       }
 
       const exportData = investmentData.map((item) => ({
-        Date: item.date,
+        Date: item.date?.toDate ? item.date.toDate().toLocaleDateString() : item.date,
         Invested: item.invested,
         Returns: item.returns,
       }));
@@ -118,37 +132,26 @@ export default function InvestmentReport() {
 
       const buffer = new ArrayBuffer(wbout.length);
       const view = new Uint8Array(buffer);
-      for (let i = 0; i < wbout.length; ++i) {
-        view[i] = wbout.charCodeAt(i) & 0xff;
-      }
+      for (let i = 0; i < wbout.length; ++i) view[i] = wbout.charCodeAt(i) & 0xff;
 
       RNFS.writeFile(path, String.fromCharCode(...view), "ascii")
-        .then(() => {
-          Alert.alert("Export Successful", `File saved to:\n${path}`);
-        })
-        .catch((err) => {
-          console.error("File write error", err);
-          Alert.alert("Error", "Failed to save Excel file.");
-        });
-    } catch (error) {
-      console.error("Export Error:", error);
-      Alert.alert("Error", "An unexpected error occurred while exporting.");
+        .then(() => Alert.alert("Export Successful", `File saved to:\n${path}`))
+        .catch(() => Alert.alert("Error", "Failed to save Excel file."));
+    } catch {
+      Alert.alert("Error", "Unexpected error while exporting.");
     }
   };
 
   return (
     <ScrollView style={styles.container}>
-      {/* Header + Export */}
       <View style={styles.headerRow}>
         <Text style={styles.title}>Investment vs Returns</Text>
-
         <TouchableOpacity onPress={exportToExcel} style={styles.exportButton}>
           <Icon name="file-excel" size={22} color="#2e7d32" />
           <Text style={styles.exportText}>Export</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Filter Tabs */}
       <View style={styles.tabsContainer}>
         {filters.map((filter) => (
           <TouchableOpacity
@@ -156,19 +159,13 @@ export default function InvestmentReport() {
             style={[styles.tab, selectedFilter === filter && styles.activeTab]}
             onPress={() => setSelectedFilter(filter)}
           >
-            <Text
-              style={[
-                styles.tabText,
-                selectedFilter === filter && styles.activeTabText,
-              ]}
-            >
+            <Text style={[styles.tabText, selectedFilter === filter && styles.activeTabText]}>
               {filter.toUpperCase()}
             </Text>
           </TouchableOpacity>
         ))}
       </View>
 
-      {/* Chart Section */}
       <View style={{ height: 320, flexDirection: "row", paddingRight: 10 }}>
         <YAxis
           data={[...invested, ...returns]}
@@ -215,7 +212,6 @@ export default function InvestmentReport() {
         </View>
       </View>
 
-      {/* Legend */}
       <View style={styles.legendContainer}>
         <View style={styles.legendBox}>
           <View style={[styles.colorBox, { backgroundColor: "#4caf50" }]} />
@@ -232,43 +228,16 @@ export default function InvestmentReport() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 15, backgroundColor: "#F9FAFB" },
-  headerRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 15,
-  },
+  headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 15 },
   title: { fontSize: 22, fontWeight: "bold" },
-  exportButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#E8F5E9",
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-  },
-  exportText: {
-    color: "#2e7d32",
-    fontWeight: "600",
-    marginLeft: 5,
-    fontSize: 14,
-  },
+  exportButton: { flexDirection: "row", alignItems: "center", backgroundColor: "#E8F5E9", paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8 },
+  exportText: { color: "#2e7d32", fontWeight: "600", marginLeft: 5, fontSize: 14 },
   tabsContainer: { flexDirection: "row", marginBottom: 15 },
-  tab: {
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-    backgroundColor: "#EAEAEA",
-    borderRadius: 8,
-    marginRight: 10,
-  },
+  tab: { paddingVertical: 8, paddingHorizontal: 15, backgroundColor: "#EAEAEA", borderRadius: 8, marginRight: 10 },
   activeTab: { backgroundColor: "#FF5A5F" },
   tabText: { color: "#333", fontWeight: "600" },
   activeTabText: { color: "#fff" },
-  legendContainer: {
-    flexDirection: "row",
-    marginTop: 20,
-    alignSelf: "center",
-  },
+  legendContainer: { flexDirection: "row", marginTop: 20, alignSelf: "center" },
   legendBox: { flexDirection: "row", alignItems: "center", marginRight: 20 },
   colorBox: { width: 20, height: 20, marginRight: 5 },
 });

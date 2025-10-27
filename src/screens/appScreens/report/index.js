@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -19,15 +19,11 @@ export default function SalesReportScreen() {
   const [viewType, setViewType] = useState("daily");
   const salesData = useSelector((state) => state.authSlice?.salesData || []);
 
-  // ===== Request storage permission on Android =====
   const requestStoragePermission = async () => {
     if (Platform.OS === "android") {
       try {
-        if (Platform.Version >= 33) {
-          // Android 13+ doesn't need WRITE_EXTERNAL_STORAGE for Downloads
-          return true;
-        } else if (Platform.Version >= 29) {
-          // Android 10-12 use scoped storage, still need WRITE_EXTERNAL_STORAGE
+        if (Platform.Version >= 33) return true;
+        if (Platform.Version >= 29) {
           const granted = await PermissionsAndroid.request(
             PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE
           );
@@ -51,18 +47,27 @@ export default function SalesReportScreen() {
 
   const groupedData = useMemo(() => {
     const today = new Date();
-    const filtered = salesData.filter((item) => {
-      const date = new Date(item.date);
+
+    const filtered = salesData.filter((sale) => {
+      if (!sale.date) return false;
+      const date = new Date(sale.date);
       if (viewType === "daily") return date.toDateString() === today.toDateString();
       if (viewType === "weekly")
         return date >= new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-      if (viewType === "monthly") return date.getMonth() === today.getMonth();
+      if (viewType === "monthly")
+        return date.getMonth() === today.getMonth() && date.getFullYear() === today.getFullYear();
       if (viewType === "yearly") return date.getFullYear() === today.getFullYear();
+      return true;
     });
 
     const productCounts = {};
-    filtered.forEach((item) => {
-      productCounts[item.product] = (productCounts[item.product] || 0) + item.count;
+
+    filtered.forEach((sale) => {
+      (sale.items || []).forEach((item) => {
+        const productName = item.productName || item.name || "Unknown";
+        const qty = Number(item.quantity) || 0;
+        productCounts[productName] = (productCounts[productName] || 0) + qty;
+      });
     });
 
     return Object.entries(productCounts).map(([product, count]) => ({
@@ -94,9 +99,7 @@ export default function SalesReportScreen() {
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "ProductCounts");
 
-      // Generate base64 string
       const wbout = XLSX.write(wb, { type: "base64", bookType: "xlsx" });
-
       const fileName = `Product_Count_Report_${viewType}_${Date.now()}.xlsx`;
       const filePath =
         Platform.OS === "android"
@@ -104,7 +107,6 @@ export default function SalesReportScreen() {
           : `${RNFS.DocumentDirectoryPath}/${fileName}`;
 
       await RNFS.writeFile(filePath, wbout, "base64");
-
       Alert.alert("Success", `Report exported to:\n${filePath}`);
     } catch (error) {
       console.log("Excel export error:", error);
@@ -139,8 +141,8 @@ export default function SalesReportScreen() {
         {groupedData.length === 0 ? (
           <Text style={styles.noData}>No data available</Text>
         ) : (
-          <ScrollView horizontal>
-            <View style={{ flexDirection: "row", height: 260, paddingRight: 10 }}>
+          <ScrollView horizontal style={{ marginVertical: 10 }}>
+            <View style={{ flexDirection: "row", height: 260 }}>
               <YAxis
                 data={data}
                 contentInset={{ top: 20, bottom: 20 }}
@@ -150,7 +152,7 @@ export default function SalesReportScreen() {
               />
               <View style={{ flexDirection: "column" }}>
                 <BarChart
-                  style={{ height: 260, width: data.length * 60 }}
+                  style={{ height: 260, width: Math.max(data.length * 60, 200) }}
                   data={data}
                   svg={{ fill: "#FF5A5F" }}
                   contentInset={{ top: 20, bottom: 20 }}
@@ -159,7 +161,7 @@ export default function SalesReportScreen() {
                   <Grid />
                 </BarChart>
                 <XAxis
-                  style={{ marginTop: 10, height: 50, width: data.length * 60 }}
+                  style={{ marginTop: 10, height: 50, width: Math.max(data.length * 60, 200) }}
                   data={data}
                   formatLabel={(value, index) => labels[index]}
                   scale={scale.scaleBand}
@@ -210,37 +212,13 @@ const styles = StyleSheet.create({
   activeTab: { backgroundColor: "#FF5A5F" },
   tabText: { color: "#333", fontWeight: "600" },
   activeTabText: { color: "#fff" },
-  card: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 15,
-    marginBottom: 20,
-    elevation: 3,
-  },
+  card: { backgroundColor: "#fff", borderRadius: 12, padding: 15, marginBottom: 20, elevation: 3 },
   chartTitle: { fontSize: 18, fontWeight: "600", marginBottom: 10 },
   noData: { textAlign: "center", color: "gray", paddingVertical: 20 },
-  summaryContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-  },
-  summaryBox: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 12,
-    width: "48%",
-    alignItems: "center",
-    marginBottom: 10,
-    elevation: 2,
-  },
+  summaryContainer: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" },
+  summaryBox: { backgroundColor: "#fff", borderRadius: 12, padding: 12, width: "48%", alignItems: "center", marginBottom: 10, elevation: 2 },
   summaryTitle: { fontSize: 15, color: "#333" },
   summaryValue: { fontSize: 18, fontWeight: "bold", color: "#FF5A5F" },
-  exportButton: {
-    backgroundColor: "#27ae60",
-    marginTop: 25,
-    paddingVertical: 15,
-    borderRadius: 10,
-    alignItems: "center",
-  },
+  exportButton: { backgroundColor: "#27ae60", marginTop: 25, paddingVertical: 15, borderRadius: 10, alignItems: "center" },
   exportText: { color: "#fff", fontSize: 16, fontWeight: "bold" },
 });

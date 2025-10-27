@@ -1,63 +1,45 @@
 import { createSlice } from "@reduxjs/toolkit";
-import endpoints from "../../apiServices/endpoint";
-import request from "../../apiServices";
 
 const initialState = {
   data: [],
-   salesData: [],
+  salesData: [],
+  loading: false,
+  error: null,
 };
 
 export const authSlice = createSlice({
   name: "auth",
   initialState,
   reducers: {
-    addOrUpdateInvestment: (state, action) => {
-      const newItems = Array.isArray(action.payload) ? action.payload : [action.payload];
-
-      // Merge existing data with new items based on unique id
-      const updatedData = [...state.data];
-
-      newItems.forEach(item => {
-        const existingIndex = updatedData.findIndex(i => i.id === item.id);
-        if (existingIndex >= 0) {
-          // Update existing item if id matches
-          updatedData[existingIndex] = { ...updatedData[existingIndex], ...item };
-        } else {
-          // Append new item if id is unique
-          updatedData.push({ ...item });
-        }
-      });
-
-      // Return new state immutably
-      return { ...state, data: updatedData };
+    setLoading: (state, action) => {
+      state.loading = action.payload;
     },
+    setError: (state, action) => {
+      state.error = action.payload;
+    },
+
+    // 🔥 Replace investment data from Firestore snapshot
+    addOrUpdateInvestment: (state, action) => {
+      state.data = Array.isArray(action.payload) ? action.payload : [action.payload];
+    },
+
+    // 🔥 Replace sales data from Firestore snapshot
     addSales: (state, action) => {
-      console.log(action.payload,"add salse")
-      // action.payload should be an array of { product, date, count }
-      state.salesData.push(...action.payload);
+      state.salesData = Array.isArray(action.payload) ? action.payload : [action.payload];
+    },
+
+    clearData: (state) => {
+      state.data = [];
+      state.salesData = [];
     },
   },
 });
 
-/*--------------------- API call example --------------------------*/
-export const loginApi = async (data) => {
-  try {
-    const res = await request({
-      url: endpoints?.EndPoints?.products,
-      method: endpoints.ApiMethods.GET,
-      headers: { data },
-    });
-    return res;
-  } catch (error) {
-    console.error("Error in loginApi:", error);
-    throw error;
-  }
-};
+export const { setLoading, setError, addOrUpdateInvestment, addSales, clearData } =
+  authSlice.actions;
 
-// Export actions
-export const { addOrUpdateInvestment,addSales } = authSlice.actions;
-
-// Selector example
 export const selectInvestments = (state) => state.auth.data;
+export const selectSales = (state) => state.auth.salesData;
+export const selectLoading = (state) => state.auth.loading;
 
 export default authSlice.reducer;
