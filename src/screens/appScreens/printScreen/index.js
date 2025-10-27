@@ -17,10 +17,12 @@ import { addSales } from "../../../redux/slice/authSlice"; // adjust path
 import firestore from '@react-native-firebase/firestore';
 import firebase from '@react-native-firebase/app'; 
 import { store } from "../../../redux/store";
+import navigationServices from "../../../navigation/navigationServices";
+import { SCREENS } from "../../../navigation/screens";
 
 export default function CheckoutScreen({ route }) {
   const { cartItems } = route.params || { cartItems: [] };
-  const [connectedPrinter, setConnectedPrinter] = useState(null);
+  const [connectedPrinter, setConnectedPrinter] = useState(true);
   const dispatch = useDispatch();
 
   const totalPrice = cartItems.reduce(
@@ -80,6 +82,7 @@ export default function CheckoutScreen({ route }) {
       Alert.alert("Connected", `Bluetooth Printer: ${printer.device_name}`);
     } catch (error) {
       console.error("Bluetooth Printer Connection Failed:", error);
+        setConnectedPrinter(true);
       Alert.alert("Error", "Failed to connect to Bluetooth Printer.");
     }
   };
@@ -87,10 +90,28 @@ export default function CheckoutScreen({ route }) {
 // ======= Print Bluetooth Receipt =======
 const printBluetoothReceipt = async () => {
   try {
-    // if (!connectedPrinter) {
-    //   Alert.alert("Printer Not Connected", "Please connect a printer first.");
-    //   return;
-    // }
+    if (!connectedPrinter) {
+      
+     Alert.alert(
+  "Printer Not Connected",
+  "Please connect a printer first.",
+  [
+    {
+      text: "Cancel",
+      style: "cancel",
+    },
+    {
+      text: "Connect Now",
+      onPress: () => {
+    
+    connectBluetoothPrinter()
+      }
+    }
+  ]
+);
+      
+      return;
+    }
 
     let printData = `<C>===== ORDER RECEIPT =====</C>\n`;
     printData += `<C>Order ID: ${orderId}</C>\n`;
@@ -114,7 +135,7 @@ const printBluetoothReceipt = async () => {
     });
 
     Alert.alert("Success", "Printed & Saved Successfully ✅");
-
+navigationServices.navigate(SCREENS.HOME)
   } catch (error) {
     console.error("Bluetooth Printing Error:", error);
     Alert.alert("Error", "Failed to print via Bluetooth printer.");

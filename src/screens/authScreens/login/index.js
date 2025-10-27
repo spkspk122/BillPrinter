@@ -1,35 +1,57 @@
 import React from 'react';
-import { View, TextInput, Text, StyleSheet, Image } from 'react-native';
+import { View, TextInput, Text, StyleSheet, Image, Alert } from 'react-native';
 import { Formik } from 'formik';
 import Button from '../../../components/Button';
 import * as Yup from 'yup';
 import navigationServices from '../../../navigation/navigationServices';
 import { SCREENS } from '../../../navigation/screens';
+import { useDispatch } from 'react-redux';
+import { setUserRole } from '../../../redux/slice/authSlice';
 
 export default function LoginScreen({ navigation }) {
+  const dispatch = useDispatch();
+
   const loginValidation = Yup.object().shape({
     email: Yup.string().email('Invalid email').required('Email is required'),
     password: Yup.string().min(6, 'Password too short').required('Password is required'),
   });
 
+  const handleLogin = (values) => {
+    let role = null;
+
+    if (values.email === 'owner@gmail.com' && values.password === '123456') {
+      role = 'owner';
+    } else if (values.email === 'user@gmail.com' && values.password === '123456') {
+      role = 'user';
+    } else {
+      Alert.alert('Login Failed', 'Invalid email or password');
+      return;
+    }
+
+    // ✅ Save role in Redux
+    dispatch(setUserRole(role));
+
+    // ✅ Navigate to HOME
+    navigationServices.navigateAndReset(SCREENS.HOME);
+  };
+
   return (
     <View style={styles.container}>
-      {/* Logo Image */}
       <Image source={require('../../../assest/images/logo.png')} style={styles.logoImage} />
-
-      {/* App Name */}
       <Text style={styles.logoText}> Billing</Text>
 
       <Formik
         initialValues={{ email: '', password: '' }}
         validationSchema={loginValidation}
-        onSubmit={values => navigationServices?.navigate(SCREENS.HOME)}
+        onSubmit={handleLogin}
       >
         {({ handleChange, handleBlur, handleSubmit, values, errors, touched }) => (
           <>
             <TextInput
               style={styles.input}
               placeholder="Email"
+              autoCapitalize="none"
+              keyboardType="email-address"
               onChangeText={handleChange('email')}
               onBlur={handleBlur('email')}
               value={values.email}

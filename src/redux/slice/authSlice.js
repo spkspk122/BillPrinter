@@ -5,6 +5,7 @@ const initialState = {
   salesData: [],
   loading: false,
   error: null,
+  role:null
 };
 
 export const authSlice = createSlice({
@@ -27,15 +28,19 @@ export const authSlice = createSlice({
     addSales: (state, action) => {
       state.salesData = Array.isArray(action.payload) ? action.payload : [action.payload];
     },
+     setUserRole: (state, action) => {
+      state.role = action.payload;
+    },
 
     clearData: (state) => {
       state.data = [];
       state.salesData = [];
+      state.role=null
     },
   },
 });
 
-export const { setLoading, setError, addOrUpdateInvestment, addSales, clearData } =
+export const { setLoading, setError, addOrUpdateInvestment, addSales, clearData,setUserRole } =
   authSlice.actions;
 
 export const selectInvestments = (state) => state.auth.data;

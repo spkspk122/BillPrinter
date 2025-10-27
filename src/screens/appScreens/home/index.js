@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert } from 'react-native';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import firestore from '@react-native-firebase/firestore';
 import navigationServices from '../../../navigation/navigationServices';
 import { SCREENS } from '../../../navigation/screens';
-import { addOrUpdateInvestment } from '../../../redux/slice/authSlice';
+import { addOrUpdateInvestment, clearData, setUserRole } from '../../../redux/slice/authSlice';
 
 const buttons = [
   { name: 'Take Order', color: '#FF5A5F', screen: SCREENS?.OREDERTAKING },
@@ -14,10 +14,15 @@ const buttons = [
 
 export default function HomeScreen() {
   const dispatch = useDispatch();
-
+  const role = useSelector(state => state.authSlice.role);
   const [invested, setInvested] = useState('');
   const [returns, setReturns] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const handleLogout = () => {
+    dispatch(clearData()); // Clear role
+    navigationServices.navigate(SCREENS.LOGIN); // Go to login
+  };
 
   const handleSave = async () => {
     if (!invested || !returns) {
@@ -25,7 +30,7 @@ export default function HomeScreen() {
       return;
     }
 
-    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    const today = new Date().toISOString().split('T')[0];
     const investmentData = {
       date: today,
       invested: Number(invested),
@@ -35,13 +40,8 @@ export default function HomeScreen() {
 
     try {
       setLoading(true);
-
-      // 1️⃣ Add to Firestore
       const docRef = await firestore().collection('investments').add(investmentData);
-
-      // 2️⃣ Dispatch to Redux
       dispatch(addOrUpdateInvestment({ id: docRef.id, ...investmentData }));
-
       Alert.alert('Success', 'Investment saved successfully!');
       setInvested('');
       setReturns('');
@@ -57,38 +57,49 @@ export default function HomeScreen() {
     <ScrollView style={styles.container}>
       <Text style={styles.heading}>Store Dashboard</Text>
 
+      {/* ✅ Logout Button */}
+      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+        <Text style={styles.logoutText}>Logout</Text>
+      </TouchableOpacity>
+
       {/* Navigation Buttons */}
-      {buttons.map((btn, index) => (
-        <View key={index} style={{ marginBottom: 10 }}>
-          <IconButton button={btn} onPress={() => navigationServices?.navigate(btn?.screen)} />
-        </View>
-      ))}
+      {buttons
+        .filter(btn => !(role === 'owner' && btn.name === 'Take Order'))
+        .map((btn, index) => (
+          <View key={index} style={{ marginBottom: 10 }}>
+            <IconButton button={btn} onPress={() => navigationServices?.navigate(btn?.screen)} />
+          </View>
+        ))}
 
-      <Text style={styles.subHeading}>Daily Investment</Text>
+      {role !== 'owner' && (
+        <>
+          <Text style={styles.subHeading}>Daily Investment</Text>
 
-      <View style={styles.inputContainer}>
-        <TextInput
-          style={styles.input}
-          placeholder="Invested Amount"
-          keyboardType="numeric"
-          value={invested}
-          onChangeText={setInvested}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Returns Amount"
-          keyboardType="numeric"
-          value={returns}
-          onChangeText={setReturns}
-        />
-        <TouchableOpacity
-          style={[styles.saveButton, { opacity: loading ? 0.6 : 1 }]}
-          disabled={loading}
-          onPress={handleSave}
-        >
-          <Text style={styles.saveButtonText}>{loading ? 'Saving...' : 'Save'}</Text>
-        </TouchableOpacity>
-      </View>
+          <View style={styles.inputContainer}>
+            <TextInput
+              style={styles.input}
+              placeholder="Invested Amount"
+              keyboardType="numeric"
+              value={invested}
+              onChangeText={setInvested}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Returns Amount"
+              keyboardType="numeric"
+              value={returns}
+              onChangeText={setReturns}
+            />
+            <TouchableOpacity
+              style={[styles.saveButton, { opacity: loading ? 0.6 : 1 }]}
+              disabled={loading}
+              onPress={handleSave}
+            >
+              <Text style={styles.saveButtonText}>{loading ? 'Saving...' : 'Save'}</Text>
+            </TouchableOpacity>
+          </View>
+        </>
+      )}
     </ScrollView>
   );
 }
@@ -114,7 +125,16 @@ function IconButton({ button, onPress }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFF', padding: 15 },
-  heading: { fontSize: 24, fontWeight: 'bold', marginBottom: 15 },
+  heading: { fontSize: 24, fontWeight: 'bold', marginBottom: 10 },
+  logoutButton: {
+    alignSelf: 'flex-end',
+    backgroundColor: '#ff3b30',
+    paddingHorizontal: 15,
+    paddingVertical: 6,
+    borderRadius: 6,
+    marginBottom: 15,
+  },
+  logoutText: { color: '#FFF', fontWeight: 'bold' },
   subHeading: { fontSize: 20, fontWeight: 'bold', marginTop: 20, marginBottom: 10 },
   inputContainer: { marginTop: 10 },
   input: {
