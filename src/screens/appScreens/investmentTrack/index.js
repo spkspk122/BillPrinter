@@ -5,19 +5,17 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  Dimensions,
   Alert,
 } from "react-native";
 import { LineChart, Grid, XAxis, YAxis } from "react-native-svg-charts";
 import * as shape from "d3-shape";
-import { G, Circle, Text as SVGText } from "react-native-svg";
+import { G, Circle } from "react-native-svg";
 import { useSelector } from "react-redux";
 import RNFS from "react-native-fs";
 import XLSX from "xlsx";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 
 const filters = ["weekly", "monthly", "yearly"];
-const { width } = Dimensions.get("window");
 
 export default function InvestmentReport() {
   const [selectedFilter, setSelectedFilter] = useState("weekly");
@@ -91,20 +89,7 @@ export default function InvestmentReport() {
   const Decorator = ({ x, y, data, color }) => (
     <G>
       {data.map((value, index) => (
-        <React.Fragment key={index}>
-          <Circle cx={x(index)} cy={y(value)} r={4} stroke={color} fill="white" strokeWidth={2} />
-          <SVGText
-            x={x(index)}
-            y={y(value) - 12}
-            fontSize={10}
-            fill={color}
-            fontWeight="600"
-            alignmentBaseline="middle"
-            textAnchor="middle"
-          >
-            {value.toLocaleString()}
-          </SVGText>
-        </React.Fragment>
+        <Circle key={index} cx={x(index)} cy={y(value)} r={4} stroke={color} fill="white" strokeWidth={2} />
       ))}
     </G>
   );
@@ -117,7 +102,14 @@ export default function InvestmentReport() {
         return;
       }
 
-      const exportData = investmentData.map((item) => ({
+      // Sort by date (oldest to newest)
+      const sortedData = [...investmentData].sort((a, b) => {
+        const dateA = parseSafeDate(a.date);
+        const dateB = parseSafeDate(b.date);
+        return dateA - dateB;
+      });
+
+      const exportData = sortedData.map((item) => ({
         Date: item.date?.toDate ? item.date.toDate().toLocaleDateString() : item.date,
         Invested: item.invested,
         Returns: item.returns,
@@ -204,8 +196,8 @@ export default function InvestmentReport() {
 
           <XAxis
             style={{ marginHorizontal: -10, height: 30 }}
-            data={labels}
-            formatLabel={(value, index) => labels[index]}
+            data={invested}
+            formatLabel={(value, index) => labels[index] || ''}
             contentInset={{ left: 20, right: 20 }}
             svg={{ fontSize: 12, fill: "gray" }}
           />
@@ -221,6 +213,34 @@ export default function InvestmentReport() {
           <View style={[styles.colorBox, { backgroundColor: "#ff5722" }]} />
           <Text>Returns</Text>
         </View>
+      </View>
+
+      {/* 📊 Data Cards */}
+      <Text style={styles.cardsTitle}>Data Details ({selectedFilter})</Text>
+      <View style={styles.cardsContainer}>
+        {filteredData.map((item, index) => (
+          <View key={index} style={styles.dataCard}>
+            <Text style={styles.cardLabel}>{item.label}</Text>
+            <View style={styles.cardRow}>
+              <View style={styles.cardItem}>
+                <View style={[styles.cardColorDot, { backgroundColor: "#4caf50" }]} />
+                <Text style={styles.cardText}>Invested:</Text>
+                <Text style={styles.cardValue}>{item.invested.toLocaleString()}</Text>
+              </View>
+              <View style={styles.cardItem}>
+                <View style={[styles.cardColorDot, { backgroundColor: "#ff5722" }]} />
+                <Text style={styles.cardText}>Returns:</Text>
+                <Text style={styles.cardValue}>{item.returns.toLocaleString()}</Text>
+              </View>
+            </View>
+            <View style={styles.cardProfit}>
+              <Text style={styles.cardProfitLabel}>Profit/Loss:</Text>
+              <Text style={[styles.cardProfitValue, { color: item.returns - item.invested >= 0 ? "#4caf50" : "#ff5722" }]}>
+                {(item.returns - item.invested >= 0 ? "+" : "")}{(item.returns - item.invested).toLocaleString()}
+              </Text>
+            </View>
+          </View>
+        ))}
       </View>
     </ScrollView>
   );
@@ -240,4 +260,34 @@ const styles = StyleSheet.create({
   legendContainer: { flexDirection: "row", marginTop: 20, alignSelf: "center" },
   legendBox: { flexDirection: "row", alignItems: "center", marginRight: 20 },
   colorBox: { width: 20, height: 20, marginRight: 5 },
+  cardsTitle: { fontSize: 18, fontWeight: "bold", marginTop: 25, marginBottom: 15 },
+  cardsContainer: { marginBottom: 20 },
+  dataCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    padding: 15,
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  cardLabel: { fontSize: 16, fontWeight: "bold", marginBottom: 10, color: "#333" },
+  cardRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 10 },
+  cardItem: { flexDirection: "row", alignItems: "center", flex: 1 },
+  cardColorDot: { width: 12, height: 12, borderRadius: 6, marginRight: 6 },
+  cardText: { fontSize: 14, color: "#666", marginRight: 4 },
+  cardValue: { fontSize: 16, fontWeight: "600", color: "#333" },
+  cardProfit: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: "#EEEEEE"
+  },
+  cardProfitLabel: { fontSize: 14, fontWeight: "600", color: "#666" },
+  cardProfitValue: { fontSize: 16, fontWeight: "bold" },
 });

@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, Platform } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import firestore from '@react-native-firebase/firestore';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import navigationServices from '../../../navigation/navigationServices';
 import { SCREENS } from '../../../navigation/screens';
-import { addOrUpdateInvestment, clearData, setUserRole } from '../../../redux/slice/authSlice';
+import { clearData } from '../../../redux/slice/authSlice';
 
 const buttons = [
   { name: 'Take Order', color: '#FF5A5F', screen: SCREENS?.OREDERTAKING },
@@ -18,10 +19,19 @@ export default function HomeScreen() {
   const [invested, setInvested] = useState('');
   const [returns, setReturns] = useState('');
   const [loading, setLoading] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   const handleLogout = () => {
     dispatch(clearData()); // Clear role
     navigationServices.navigate(SCREENS.LOGIN); // Go to login
+  };
+
+  const onDateChange = (event, date) => {
+    setShowDatePicker(Platform.OS === 'ios');
+    if (date) {
+      setSelectedDate(date);
+    }
   };
 
   const handleSave = async () => {
@@ -30,24 +40,38 @@ export default function HomeScreen() {
       return;
     }
 
-    const today = new Date().toISOString().split('T')[0];
+    const formattedDate = selectedDate.toISOString().split('T')[0];
+
+    // Generate unique ID manually
+    const docId = `inv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
     const investmentData = {
-      date: today,
+      date: formattedDate,
       invested: Number(invested),
       returns: Number(returns),
-      createdAt: firestore.FieldValue.serverTimestamp(),
+      createdAt: new Date().toISOString(),
     };
+
+    console.log('📊 Saving investment:', investmentData);
 
     try {
       setLoading(true);
-      const docRef = await firestore().collection('investments').add(investmentData);
-      dispatch(addOrUpdateInvestment({ id: docRef.id, ...investmentData }));
+
+      // Use .set() instead of .add() to avoid hanging
+      await firestore()
+        .collection('investments')
+        .doc(docId)
+        .set(investmentData);
+
+      console.log('✅ Investment saved with ID:', docId);
+
       Alert.alert('Success', 'Investment saved successfully!');
       setInvested('');
       setReturns('');
+      setSelectedDate(new Date());
     } catch (error) {
       console.error('🔥 Firestore save error:', error);
-      Alert.alert('Error', 'Failed to save investment.');
+      Alert.alert('Error', `Failed to save: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -76,6 +100,25 @@ export default function HomeScreen() {
           <Text style={styles.subHeading}>Daily Investment</Text>
 
           <View style={styles.inputContainer}>
+            <TouchableOpacity
+              style={styles.dateButton}
+              onPress={() => setShowDatePicker(true)}
+            >
+              <Text style={styles.dateButtonText}>
+                Date: {selectedDate.toLocaleDateString()}
+              </Text>
+            </TouchableOpacity>
+
+            {showDatePicker && (
+              <DateTimePicker
+                value={selectedDate}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={onDateChange}
+                maximumDate={new Date()}
+              />
+            )}
+
             <TextInput
               style={styles.input}
               placeholder="Invested Amount"
@@ -137,6 +180,20 @@ const styles = StyleSheet.create({
   logoutText: { color: '#FFF', fontWeight: 'bold' },
   subHeading: { fontSize: 20, fontWeight: 'bold', marginTop: 20, marginBottom: 10 },
   inputContainer: { marginTop: 10 },
+  dateButton: {
+    borderWidth: 1,
+    borderColor: '#3498DB',
+    backgroundColor: '#E8F4F8',
+    borderRadius: 6,
+    padding: 12,
+    marginBottom: 10,
+    alignItems: 'center',
+  },
+  dateButtonText: {
+    color: '#3498DB',
+    fontSize: 16,
+    fontWeight: '600',
+  },
   input: {
     borderWidth: 1,
     borderColor: '#ccc',
