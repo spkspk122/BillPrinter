@@ -4,7 +4,6 @@ import { store } from '../store';
 
 export const startFirestoreListeners = () => {
  
-console.log('🔥 Firestore project ID:', firestore().app?.options);
 
   try {
     // Investments listener
