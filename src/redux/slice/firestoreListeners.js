@@ -16,7 +16,6 @@ console.log('🔥 Firestore project ID:', firestore().app?.options);
             id: doc.id,
             ...doc.data(),
           }));
-          console.log('📊 Investments updated:', items.length);
           store.dispatch(addOrUpdateInvestment(items));
         },
         error => console.error('❌ Firestore investments listener error:', error)
