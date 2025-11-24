@@ -1,6 +1,6 @@
 apply plugin: "com.android.application"
 apply plugin: "com.facebook.react"
-apply plugin: 'com.google.gms.google-services'
+// apply plugin: 'com.google.gms.google-services' // Temporarily disabled for package rename
 
 import com.android.build.OutputFile
 
@@ -94,9 +94,9 @@ android {
 
     compileSdkVersion rootProject.ext.compileSdkVersion
 
-    namespace "com.eds_mobile_app"
+    namespace "com.moneywise.app"
     defaultConfig {
-        applicationId "com.eds_mobile_app"
+        applicationId "com.moneywise.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

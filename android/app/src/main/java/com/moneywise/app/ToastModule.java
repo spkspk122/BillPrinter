@@ -1,5 +1,5 @@
 // ToastModule.java
-package com.eds_mobile_app;
+package com.moneywise.app;
 
 import android.widget.Toast;
 import com.facebook.react.bridge.ReactApplicationContext;

@@ -62,8 +62,31 @@ const AuthNavigation = () => {
         name: SCREENS?.Report,
       component: screenNames?.SalesReportScreen,
       animation:'fade'
+    },
+    {
+      id:10,
+      name: SCREENS?.ADDEXPENSE,
+      component: screenNames?.AddExpenseScreen,
+      animation:'fade'
+    },
+    {
+      id:11,
+      name: SCREENS?.EXPENSEREPORTS,
+      component: screenNames?.ExpenseReportsScreen,
+      animation:'fade'
+    },
+    {
+      id:12,
+      name: SCREENS?.BILLSREMINDERS,
+      component: screenNames?.BillsRemindersScreen,
+      animation:'fade'
+    },
+    {
+      id:13,
+      name: SCREENS?.EXPENSELIST,
+      component: screenNames?.ExpenseListScreen,
+      animation:'fade'
     }
-    
   ];
   return (
     <Stack.Navigator initialRouteName={SCREENS.SPLASH}>

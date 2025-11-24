@@ -1,5 +1,5 @@
 // MyAppPackage.java
-package com.eds_mobile_app;
+package com.moneywise.app;
 
 import com.facebook.react.ReactPackage;
 import com.facebook.react.bridge.NativeModule;

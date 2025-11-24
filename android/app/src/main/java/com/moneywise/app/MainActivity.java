@@ -1,4 +1,4 @@
-package com.eds_mobile_app;
+package com.moneywise.app;
 
 import com.facebook.react.ReactActivity;
 import com.facebook.react.ReactActivityDelegate;

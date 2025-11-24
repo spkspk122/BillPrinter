@@ -1,212 +1,382 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, Platform } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, Platform, Animated } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
-import firestore from '@react-native-firebase/firestore';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import LinearGradient from 'react-native-linear-gradient';
 import navigationServices from '../../../navigation/navigationServices';
 import { SCREENS } from '../../../navigation/screens';
-import { clearData } from '../../../redux/slice/authSlice';
-
-const buttons = [
-  { name: 'Take Order', color: '#FF5A5F', screen: SCREENS?.OREDERTAKING },
-  { name: 'Reports', color: '#3498DB', screen: SCREENS?.Report },
-  { name: 'Inventory', color: '#3498DB', screen: SCREENS.INVESTEDAMOUNT },
-];
+import { clearData, selectMonthlySalary, selectExpenses, setMonthlySalary } from '../../../redux/slice/authSlice';
 
 export default function HomeScreen() {
   const dispatch = useDispatch();
   const role = useSelector(state => state.authSlice.role);
-  const [invested, setInvested] = useState('');
-  const [returns, setReturns] = useState('');
+  const monthlySalary = useSelector(selectMonthlySalary);
+  const expenses = useSelector(selectExpenses);
+
+  const [salary, setSalary] = useState('');
   const [loading, setLoading] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(new Date());
-  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showSalarySetup, setShowSalarySetup] = useState(false);
+
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(50)).current;
+
+  useEffect(() => {
+    if (monthlySalary) {
+      setSalary(monthlySalary.amount?.toString() || '');
+    }
+  }, [monthlySalary]);
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        tension: 50,
+        friction: 7,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
+  // Calculate total expenses for current month
+  const getCurrentMonthExpenses = () => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    return expenses
+      .filter(exp => {
+        const expDate = new Date(exp.date);
+        return expDate.getMonth() === currentMonth && expDate.getFullYear() === currentYear;
+      })
+      .reduce((total, exp) => total + (exp.amount || 0), 0);
+  };
+
+  // Calculate expenses by category
+  const getExpensesByCategory = () => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    const monthlyExpenses = expenses.filter(exp => {
+      const expDate = new Date(exp.date);
+      return expDate.getMonth() === currentMonth && expDate.getFullYear() === currentYear;
+    });
+
+    const categories = {};
+    monthlyExpenses.forEach(exp => {
+      const cat = exp.category || 'Others';
+      categories[cat] = (categories[cat] || 0) + exp.amount;
+    });
+
+    return categories;
+  };
+
+  const totalExpenses = getCurrentMonthExpenses();
+  const remaining = (monthlySalary?.amount || 0) - totalExpenses;
+  const expenseCategories = getExpensesByCategory();
 
   const handleLogout = () => {
-    dispatch(clearData()); // Clear role
-    navigationServices.navigate(SCREENS.LOGIN); // Go to login
+    dispatch(clearData());
+    navigationServices.navigate(SCREENS.LOGIN);
   };
 
-  const onDateChange = (event, date) => {
-    setShowDatePicker(Platform.OS === 'ios');
-    if (date) {
-      setSelectedDate(date);
-    }
-  };
-
-  const handleSave = async () => {
-    if (!invested || !returns) {
-      Alert.alert('Validation', 'Enter both invested and returns amounts');
+  const handleSaveSalary = () => {
+    if (!salary || isNaN(salary) || Number(salary) <= 0) {
+      Alert.alert('Validation', 'Please enter a valid salary amount');
       return;
     }
 
-    const formattedDate = selectedDate.toISOString().split('T')[0];
-
-    // Generate unique ID manually
-    const docId = `inv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-    const investmentData = {
-      date: formattedDate,
-      invested: Number(invested),
-      returns: Number(returns),
-      createdAt: new Date().toISOString(),
+    const salaryData = {
+      amount: Number(salary),
+      updatedAt: new Date().toISOString(),
+      currency: 'INR',
     };
 
-    console.log('📊 Saving investment:', investmentData);
-
-    try {
-      setLoading(true);
-
-      // Use .set() instead of .add() to avoid hanging
-      await firestore()
-        .collection('investments')
-        .doc(docId)
-        .set(investmentData);
-
-      console.log('✅ Investment saved with ID:', docId);
-
-      Alert.alert('Success', 'Investment saved successfully!');
-      setInvested('');
-      setReturns('');
-      setSelectedDate(new Date());
-    } catch (error) {
-      console.error('🔥 Firestore save error:', error);
-      Alert.alert('Error', `Failed to save: ${error.message}`);
-    } finally {
-      setLoading(false);
-    }
+    // Save to Redux (persisted automatically)
+    dispatch(setMonthlySalary(salaryData));
+    Alert.alert('Success', 'Monthly salary saved successfully!');
+    setShowSalarySetup(false);
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <Text style={styles.heading}>Store Dashboard</Text>
-
-      {/* ✅ Logout Button */}
-      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-        <Text style={styles.logoutText}>Logout</Text>
-      </TouchableOpacity>
-
-      {/* Navigation Buttons */}
-      {buttons
-        .filter(btn => !(role === 'owner' && btn.name === 'Take Order'))
-        .map((btn, index) => (
-          <View key={index} style={{ marginBottom: 10 }}>
-            <IconButton button={btn} onPress={() => navigationServices?.navigate(btn?.screen)} />
-          </View>
-        ))}
-
-      {role !== 'owner' && (
-        <>
-          <Text style={styles.subHeading}>Daily Investment</Text>
-
-          <View style={styles.inputContainer}>
-            <TouchableOpacity
-              style={styles.dateButton}
-              onPress={() => setShowDatePicker(true)}
-            >
-              <Text style={styles.dateButtonText}>
-                Date: {selectedDate.toLocaleDateString()}
-              </Text>
-            </TouchableOpacity>
-
-            {showDatePicker && (
-              <DateTimePicker
-                value={selectedDate}
-                mode="date"
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={onDateChange}
-                maximumDate={new Date()}
-              />
-            )}
-
-            <TextInput
-              style={styles.input}
-              placeholder="Invested Amount"
-              keyboardType="numeric"
-              value={invested}
-              onChangeText={setInvested}
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Returns Amount"
-              keyboardType="numeric"
-              value={returns}
-              onChangeText={setReturns}
-            />
-            <TouchableOpacity
-              style={[styles.saveButton, { opacity: loading ? 0.6 : 1 }]}
-              disabled={loading}
-              onPress={handleSave}
-            >
-              <Text style={styles.saveButtonText}>{loading ? 'Saving...' : 'Save'}</Text>
-            </TouchableOpacity>
-          </View>
-        </>
-      )}
-    </ScrollView>
-  );
-}
-
-function IconButton({ button, onPress }) {
-  return (
-    <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center' }} onPress={onPress}>
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          backgroundColor: button.color,
-          padding: 15,
-          borderRadius: 10,
-          flex: 1,
-        }}
+    <View style={styles.container}>
+      <LinearGradient
+        colors={['#FFE5E7', '#F8F9FA', '#F8F9FA']}
+        style={styles.gradient}
       >
-        <Text style={{ color: '#FFF', fontWeight: 'bold', marginLeft: 10 }}>{button.name}</Text>
-      </View>
-    </TouchableOpacity>
+        <ScrollView style={styles.scrollView}>
+      <Animated.View
+        style={[
+          styles.header,
+          {
+            opacity: fadeAnim,
+            transform: [{ translateY: slideAnim }],
+          },
+        ]}
+      >
+        <Text style={styles.heading}>MoneyWise</Text>
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+          <Text style={styles.logoutText}>Logout</Text>
+        </TouchableOpacity>
+      </Animated.View>
+
+      {/* Monthly Summary Card */}
+      <Animated.View
+        style={[
+          styles.summaryCard,
+          {
+            opacity: fadeAnim,
+            transform: [{ translateY: slideAnim }],
+          },
+        ]}
+      >
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryLabel}>Monthly Salary</Text>
+          <TouchableOpacity onPress={() => setShowSalarySetup(!showSalarySetup)}>
+            <Text style={styles.editButton}>Edit</Text>
+          </TouchableOpacity>
+        </View>
+        <Text style={styles.summaryAmount}>₹{(monthlySalary?.amount || 0).toLocaleString()}</Text>
+
+        <View style={styles.divider} />
+
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryLabel}>Total Expenses</Text>
+          <Text style={[styles.summaryAmount, styles.expenseAmount]}>
+            ₹{totalExpenses.toLocaleString()}
+          </Text>
+        </View>
+
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryLabel}>Remaining</Text>
+          <Text style={[styles.summaryAmount, remaining >= 0 ? styles.positiveAmount : styles.negativeAmount]}>
+            ₹{remaining.toLocaleString()}
+          </Text>
+        </View>
+      </Animated.View>
+
+      {/* Salary Setup Form */}
+      {showSalarySetup && (
+        <Animated.View style={styles.salarySetupCard}>
+          <Text style={styles.subHeading}>Set Monthly Salary</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Enter your monthly salary"
+            keyboardType="numeric"
+            value={salary}
+            onChangeText={setSalary}
+          />
+          <TouchableOpacity
+            style={[styles.saveButton, { opacity: loading ? 0.6 : 1 }]}
+            disabled={loading}
+            onPress={handleSaveSalary}
+          >
+            <Text style={styles.saveButtonText}>{loading ? 'Saving...' : 'Save Salary'}</Text>
+          </TouchableOpacity>
+        </Animated.View>
+      )}
+
+      {/* Expense Categories Summary */}
+      {Object.keys(expenseCategories).length > 0 && (
+        <Animated.View
+          style={[
+            styles.categoriesCard,
+            {
+              opacity: fadeAnim,
+            },
+          ]}
+        >
+          <Text style={styles.subHeading}>Expenses by Category</Text>
+          {Object.entries(expenseCategories).map(([category, amount]) => (
+            <View key={category} style={styles.categoryRow}>
+              <Text style={styles.categoryName}>{category}</Text>
+              <Text style={styles.categoryAmount}>₹{amount.toLocaleString()}</Text>
+            </View>
+          ))}
+        </Animated.View>
+      )}
+        </ScrollView>
+      </LinearGradient>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFF', padding: 15 },
-  heading: { fontSize: 24, fontWeight: 'bold', marginBottom: 10 },
-  logoutButton: {
-    alignSelf: 'flex-end',
-    backgroundColor: '#ff3b30',
-    paddingHorizontal: 15,
-    paddingVertical: 6,
-    borderRadius: 6,
-    marginBottom: 15,
+  container: {
+    flex: 1,
   },
-  logoutText: { color: '#FFF', fontWeight: 'bold' },
-  subHeading: { fontSize: 20, fontWeight: 'bold', marginTop: 20, marginBottom: 10 },
-  inputContainer: { marginTop: 10 },
-  dateButton: {
-    borderWidth: 1,
-    borderColor: '#3498DB',
-    backgroundColor: '#E8F4F8',
-    borderRadius: 6,
-    padding: 12,
-    marginBottom: 10,
+  gradient: {
+    flex: 1,
+  },
+  scrollView: {
+    flex: 1,
+    padding: 15,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 20,
+    marginTop: Platform.OS === 'ios' ? 10 : 0,
   },
-  dateButtonText: {
-    color: '#3498DB',
+  heading: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#1A1A1A',
+    letterSpacing: -0.5,
+  },
+  logoutButton: {
+    backgroundColor: '#FF3B30',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    elevation: 2,
+    shadowColor: '#FF3B30',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  logoutText: {
+    color: '#FFF',
+    fontWeight: '700',
+    fontSize: 14
+  },
+  summaryCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 16,
+    padding: 24,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: '#F0F0F0',
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  summaryLabel: {
+    fontSize: 15,
+    color: '#666',
+    fontWeight: '600'
+  },
+  summaryAmount: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#1A1A1A',
+    letterSpacing: -0.5,
+  },
+  expenseAmount: {
+    fontSize: 20,
+    color: '#FF5A5F',
+    fontWeight: '700',
+  },
+  positiveAmount: {
+    fontSize: 20,
+    color: '#27AE60',
+    fontWeight: '700',
+  },
+  negativeAmount: {
+    fontSize: 20,
+    color: '#E74C3C',
+    fontWeight: '700',
+  },
+  editButton: {
+    color: '#FF5A5F',
+    fontSize: 15,
+    fontWeight: '700'
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#E8E8E8',
+    marginVertical: 16,
+  },
+  salarySetupCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 16,
+    padding: 24,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: '#F0F0F0',
+  },
+  categoriesCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: '#F0F0F0',
+  },
+  categoryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F5F5F5',
+  },
+  categoryName: {
     fontSize: 16,
-    fontWeight: '600',
+    color: '#333',
+    fontWeight: '600'
+  },
+  categoryAmount: {
+    fontSize: 16,
+    color: '#FF5A5F',
+    fontWeight: '700'
+  },
+  subHeading: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginTop: 10,
+    marginBottom: 16,
+    color: '#1A1A1A',
+    letterSpacing: -0.3,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 6,
-    padding: 10,
-    marginBottom: 10,
+    borderColor: '#E0E0E0',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 16,
     fontSize: 16,
+    backgroundColor: '#FFF',
+    fontWeight: '500',
   },
   saveButton: {
     backgroundColor: '#FF5A5F',
-    padding: 12,
-    borderRadius: 8,
+    padding: 16,
+    borderRadius: 12,
     alignItems: 'center',
+    elevation: 3,
+    shadowColor: '#FF5A5F',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
   },
-  saveButtonText: { color: '#FFF', fontWeight: 'bold', fontSize: 16 },
+  saveButtonText: {
+    color: '#FFF',
+    fontWeight: '700',
+    fontSize: 16,
+    letterSpacing: 0.5,
+  },
 });

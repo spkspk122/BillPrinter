@@ -4,6 +4,10 @@ import OrderList from "../screens/appScreens/orderList";
 import CartScreen from "../screens/appScreens/orderTaking";
 import CheckoutScreen from "../screens/appScreens/printScreen";
 import SalesReportScreen from "../screens/appScreens/report";
+import AddExpenseScreen from "../screens/appScreens/addExpense";
+import ExpenseReportsScreen from "../screens/appScreens/expenseReports";
+import ExpenseListScreen from "../screens/appScreens/expenseList";
+import BillsRemindersScreen from "../screens/appScreens/billsReminders";
 import Login from "../screens/authScreens/login";
 import Splash from "../screens/authScreens/splash";
 import AppTabs from "./authNavigation/bottomTab";
@@ -17,5 +21,9 @@ export default{
     OrderList,
     CartScreen,
     CheckoutScreen,
-    SalesReportScreen
+    SalesReportScreen,
+    AddExpenseScreen,
+    ExpenseReportsScreen,
+    ExpenseListScreen,
+    BillsRemindersScreen
 }
