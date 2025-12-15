@@ -6,6 +6,7 @@ import {
   FlatList,
   TouchableOpacity,
   SafeAreaView,
+  TextInput,
 } from 'react-native';
 import navigationServices from '../../../navigation/navigationServices';
 import { SCREENS } from '../../../navigation/screens';
@@ -97,9 +98,19 @@ export default function CartScreen() {
   const [cart, setCart] = useState(
     products.reduce((acc, item) => ({ ...acc, [item.id]: 0 }), {})
   );
+  const [searchQuery, setSearchQuery] = useState('');
 
   const increment = id => setCart(prev => ({ ...prev, [id]: prev[id] + 1 }));
   const decrement = id => setCart(prev => ({ ...prev, [id]: prev[id] > 0 ? prev[id] - 1 : 0 }));
+
+  const filteredProducts = useMemo(() => {
+    if (!searchQuery.trim()) return products;
+    const query = searchQuery.toLowerCase().trim();
+    return products.filter(item =>
+      item.name.toLowerCase().includes(query) ||
+      item.category.toLowerCase().includes(query)
+    );
+  }, [searchQuery]);
 
   const totalPrice = useMemo(
     () =>
@@ -107,22 +118,33 @@ export default function CartScreen() {
     [cart]
   );
 
-  const renderItem = ({ item }) => (
-    <View style={styles.card}>
-      <Text style={styles.name}>{item.name}</Text>
-      <Text style={styles.category}>{item.category}</Text>
-      <Text style={styles.price}>₹{item.price}</Text>
-      <View style={styles.quantityContainer}>
-        <TouchableOpacity onPress={() => decrement(item.id)} style={styles.btnMinus}>
-          <Text style={styles.btnText}>-</Text>
-        </TouchableOpacity>
-        <Text style={styles.quantityText}>{cart[item.id]}</Text>
-        <TouchableOpacity onPress={() => increment(item.id)} style={styles.btnPlus}>
-          <Text style={styles.btnText}>+</Text>
-        </TouchableOpacity>
+  const renderItem = ({ item }) => {
+    const quantity = cart[item.id];
+    const hasItems = quantity > 0;
+
+    return (
+      <View style={[styles.card, hasItems && styles.cardWithItems]}>
+        <View style={styles.cardHeader}>
+          <Text style={styles.name}>{item.name}</Text>
+          {hasItems && <View style={styles.badge}><Text style={styles.badgeText}>{quantity}</Text></View>}
+        </View>
+        <Text style={styles.category}>📦 {item.category.replace(/_/g, ' ')}</Text>
+        <View style={styles.priceRow}>
+          <Text style={styles.price}>₹{item.price}</Text>
+          {hasItems && <Text style={styles.subtotal}>= ₹{item.price * quantity}</Text>}
+        </View>
+        <View style={styles.quantityContainer}>
+          <TouchableOpacity onPress={() => decrement(item.id)} style={styles.btnMinus}>
+            <Text style={styles.btnText}>−</Text>
+          </TouchableOpacity>
+          <Text style={styles.quantityText}>{cart[item.id]}</Text>
+          <TouchableOpacity onPress={() => increment(item.id)} style={styles.btnPlus}>
+            <Text style={styles.btnText}>+</Text>
+          </TouchableOpacity>
+        </View>
       </View>
-    </View>
-  );
+    );
+  };
 
  const handleCheckout = () => {
   const selectedItems = products
@@ -143,9 +165,24 @@ export default function CartScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Text style={styles.heading}>My Cart</Text>
+      <View style={styles.header}>
+        <Text style={styles.heading}>🛒 My Cart</Text>
+        <View style={styles.cartSummary}>
+          <Text style={styles.itemCount}>
+            {Object.values(cart).reduce((sum, qty) => sum + qty, 0)} items
+          </Text>
+        </View>
+      </View>
+      <TextInput
+        style={styles.searchInput}
+        placeholder="🔍 Search products by name or category..."
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+        clearButtonMode="while-editing"
+        placeholderTextColor="#95A5A6"
+      />
       <FlatList
-        data={products}
+        data={filteredProducts}
         renderItem={renderItem}
         keyExtractor={item => item.id.toString()}
         numColumns={2}
@@ -153,7 +190,10 @@ export default function CartScreen() {
       />
       {totalPrice > 0 && (
         <TouchableOpacity style={styles.checkoutBtn} onPress={handleCheckout}>
-          <Text style={styles.checkoutText}>Checkout - ₹{totalPrice}</Text>
+          <View style={styles.checkoutContent}>
+            <Text style={styles.checkoutText}>Proceed to Checkout</Text>
+            <Text style={styles.checkoutAmount}>₹{totalPrice.toFixed(2)}</Text>
+          </View>
         </TouchableOpacity>
       )}
     </SafeAreaView>
@@ -161,42 +201,192 @@ export default function CartScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 15, backgroundColor: '#FFF' },
-  heading: { fontSize: 22, fontWeight: 'bold', marginBottom: 15 },
-  listContainer: { paddingBottom: 20 },
+  container: {
+    flex: 1,
+    padding: 15,
+    backgroundColor: '#F8F9FA'
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  heading: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#2C3E50',
+  },
+  cartSummary: {
+    backgroundColor: '#8E44AD',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  itemCount: {
+    color: '#FFF',
+    fontWeight: 'bold',
+    fontSize: 13,
+  },
+  searchInput: {
+    height: 50,
+    borderWidth: 2,
+    borderColor: '#E0E0E0',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    marginBottom: 15,
+    fontSize: 15,
+    backgroundColor: '#FFF',
+    color: '#2C3E50',
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  listContainer: {
+    paddingBottom: 100,
+  },
   card: {
     flex: 1,
     backgroundColor: '#FFF',
-    borderRadius: 10,
-    padding: 10,
-    margin: 5,
-    alignItems: 'center',
+    borderRadius: 14,
+    padding: 12,
+    margin: 6,
     shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 4,
+    borderWidth: 2,
+    borderColor: 'transparent',
   },
-  name: { fontSize: 16, fontWeight: 'bold', textAlign: 'center' },
-  category: { fontSize: 12, color: '#555', textAlign: 'center' },
-  price: { fontSize: 14, fontWeight: 'bold', color: '#FF5A5F', marginVertical: 5 },
-  quantityContainer: {
+  cardWithItems: {
+    borderColor: '#27ae60',
+    backgroundColor: '#F0FFF4',
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 6,
+  },
+  badge: {
+    backgroundColor: '#27ae60',
+    borderRadius: 10,
+    minWidth: 22,
+    height: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+  },
+  badgeText: {
+    color: '#FFF',
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
+  name: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    textAlign: 'left',
+    color: '#2C3E50',
+    flex: 1,
+    marginRight: 4,
+  },
+  category: {
+    fontSize: 11,
+    color: '#7F8C8D',
+    textAlign: 'left',
+    marginBottom: 8,
+  },
+  priceRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    width: '60%',
-    marginTop: 5,
+    marginBottom: 10,
   },
-  btnMinus: { width: 30, height: 30, borderRadius: 20, justifyContent: 'center', alignItems: 'center', backgroundColor: '#ADD8E6' },
-  btnPlus: { width: 30, height: 30, borderRadius: 20, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FF7F7F' },
-  btnText: { color: '#FFF', fontWeight: 'bold', fontSize: 18 },
-  quantityText: { fontSize: 16, fontWeight: 'bold', marginHorizontal: 10 },
-  checkoutBtn: {
-    backgroundColor: '#FF5A5F',
-    padding: 15,
-    borderRadius: 10,
+  price: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#E74C3C',
+  },
+  subtotal: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#27ae60',
+  },
+  quantityContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 10,
+    justifyContent: 'center',
+    marginTop: 8,
   },
-  checkoutText: { color: '#FFF', fontWeight: 'bold', fontSize: 18 },
+  btnMinus: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#E74C3C',
+    shadowColor: '#E74C3C',
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  btnPlus: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#27ae60',
+    shadowColor: '#27ae60',
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  btnText: {
+    color: '#FFF',
+    fontWeight: 'bold',
+    fontSize: 20,
+  },
+  quantityText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginHorizontal: 16,
+    color: '#2C3E50',
+    minWidth: 30,
+    textAlign: 'center',
+  },
+  checkoutBtn: {
+    backgroundColor: '#8E44AD',
+    padding: 18,
+    borderRadius: 14,
+    position: 'absolute',
+    bottom: 20,
+    left: 15,
+    right: 15,
+    shadowColor: '#8E44AD',
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 8,
+  },
+  checkoutContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  checkoutText: {
+    color: '#FFF',
+    fontWeight: 'bold',
+    fontSize: 17,
+  },
+  checkoutAmount: {
+    color: '#FFF',
+    fontWeight: 'bold',
+    fontSize: 22,
+  },
 });

@@ -22,7 +22,7 @@ import { SCREENS } from "../../../navigation/screens";
 
 export default function CheckoutScreen({ route }) {
   const { cartItems } = route.params || { cartItems: [] };
-  const [connectedPrinter, setConnectedPrinter] = useState(true);
+  const [connectedPrinter, setConnectedPrinter] = useState(null);
   const dispatch = useDispatch();
 
   const totalPrice = cartItems.reduce(
@@ -82,7 +82,7 @@ export default function CheckoutScreen({ route }) {
       Alert.alert("Connected", `Bluetooth Printer: ${printer.device_name}`);
     } catch (error) {
       console.error("Bluetooth Printer Connection Failed:", error);
-        setConnectedPrinter(true);
+      setConnectedPrinter(null);
       Alert.alert("Error", "Failed to connect to Bluetooth Printer.");
     }
   };
@@ -132,6 +132,8 @@ const printBluetoothReceipt = async () => {
       items: cartItems,
       totalPrice,
       date: todayDate,
+      status: "pending",
+      createdAt: firestore.FieldValue.serverTimestamp(),
     });
 
     Alert.alert("Success", "Printed & Saved Successfully ✅");
@@ -141,6 +143,35 @@ navigationServices.navigate(SCREENS.HOME)
     Alert.alert("Error", "Failed to print via Bluetooth printer.");
   }
 };
+
+  // ======= Save to Firebase Only =======
+  const saveToFirebase = async () => {
+    try {
+      // ✅ Save sale data to Firestore
+      await firestore().collection("sales").add({
+        orderId,
+        items: cartItems,
+        totalPrice,
+        date: todayDate,
+        status: "pending",
+        createdAt: firestore.FieldValue.serverTimestamp(),
+      });
+
+      Alert.alert(
+        "Success",
+        "Order saved to Firebase successfully! ✅",
+        [
+          {
+            text: "OK",
+            onPress: () => navigationServices.navigate(SCREENS.HOME)
+          }
+        ]
+      );
+    } catch (error) {
+      console.error("Firebase Save Error:", error);
+      Alert.alert("Error", "Failed to save order to Firebase.");
+    }
+  };
 
   // ======= Print Wi-Fi Receipt =======
   const printWiFiReceipt = async () => {
@@ -176,9 +207,10 @@ navigationServices.navigate(SCREENS.HOME)
   // ======= Render UI =======
   const renderItem = ({ item }) => (
     <View style={styles.itemRow}>
-      <Text style={styles.itemText}>
-        {item.name} x {item.quantity}
-      </Text>
+      <View style={styles.itemLeft}>
+        <Text style={styles.itemName}>{item.name}</Text>
+        <Text style={styles.itemQuantity}>Qty: {item.quantity} × ₹{item.price}</Text>
+      </View>
       <Text style={styles.itemPrice}>
         ₹{(item.quantity * item.price).toFixed(2)}
       </Text>
@@ -187,10 +219,16 @@ navigationServices.navigate(SCREENS.HOME)
 
   return (
     <SafeAreaView style={styles.container}>
-      <Text style={styles.heading}>Checkout</Text>
+      <View style={styles.header}>
+        <Text style={styles.heading}>💳 Checkout</Text>
+        <Text style={styles.orderId}>Order #{orderId}</Text>
+      </View>
 
       <View style={styles.summaryCard}>
-        <Text style={styles.summaryTitle}>Order Summary</Text>
+        <View style={styles.summaryHeader}>
+          <Text style={styles.summaryIcon}>📝</Text>
+          <Text style={styles.summaryTitle}>Order Summary</Text>
+        </View>
         <FlatList
           data={cartItems}
           renderItem={renderItem}
@@ -202,71 +240,249 @@ navigationServices.navigate(SCREENS.HOME)
         </View>
       </View>
 
-      <TouchableOpacity style={styles.connectBtn} onPress={connectBluetoothPrinter}>
-        <Text style={styles.connectText}>Connect Bluetooth Printer</Text>
-      </TouchableOpacity>
+      <View style={styles.actionSection}>
+        <Text style={styles.actionTitle}>Choose an action:</Text>
 
-      <TouchableOpacity style={styles.printBtn} onPress={printBluetoothReceipt}>
-        <Text style={styles.printBtnText}>Print via Bluetooth</Text>
-      </TouchableOpacity>
+        <TouchableOpacity style={styles.saveBtn} onPress={saveToFirebase}>
+          <Text style={styles.saveBtnIcon}>💾</Text>
+          <View style={styles.btnContent}>
+            <Text style={styles.saveBtnText}>Save Order</Text>
+            <Text style={styles.btnSubtext}>Without printing</Text>
+          </View>
+        </TouchableOpacity>
 
-      <TouchableOpacity
-        style={[styles.printBtn, { backgroundColor: "#3498db" }]}
-        onPress={printWiFiReceipt}
-      >
-        <Text style={styles.printBtnText}>Print via Wi-Fi</Text>
-      </TouchableOpacity>
+        <TouchableOpacity style={styles.connectBtn} onPress={connectBluetoothPrinter}>
+          <Text style={styles.connectIcon}>📡</Text>
+          <Text style={styles.connectText}>Connect Bluetooth Printer</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.printBtn} onPress={printBluetoothReceipt}>
+          <Text style={styles.printBtnIcon}>🖨️</Text>
+          <View style={styles.btnContent}>
+            <Text style={styles.printBtnText}>Print via Bluetooth</Text>
+            <Text style={styles.btnSubtext}>Thermal printer</Text>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.wifiBtn} onPress={printWiFiReceipt}>
+          <Text style={styles.wifiBtnIcon}>📶</Text>
+          <View style={styles.btnContent}>
+            <Text style={styles.wifiBtnText}>Print via Wi-Fi</Text>
+            <Text style={styles.btnSubtext}>Network printer</Text>
+          </View>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
 
 // ======= STYLES =======
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 15, backgroundColor: "#fff" },
-  heading: { fontSize: 22, fontWeight: "bold", marginBottom: 20 },
+  container: {
+    flex: 1,
+    padding: 15,
+    backgroundColor: "#F8F9FA"
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  heading: {
+    fontSize: 28,
+    fontWeight: "bold",
+    color: "#2C3E50",
+  },
+  orderId: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#7F8C8D",
+    backgroundColor: "#E8E8E8",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
   summaryCard: {
     backgroundColor: "#fff",
-    borderRadius: 10,
-    padding: 15,
+    borderRadius: 14,
+    padding: 16,
     marginBottom: 20,
     shadowColor: "#000",
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 4,
   },
-  summaryTitle: { fontSize: 18, fontWeight: "bold", marginBottom: 10 },
+  summaryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  summaryIcon: {
+    fontSize: 22,
+    marginRight: 8,
+  },
+  summaryTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#2C3E50",
+  },
   itemRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginVertical: 5,
+    alignItems: "center",
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F0F0F0",
   },
-  itemText: { fontSize: 16 },
-  itemPrice: { fontSize: 16, color: "#FF5A5F", fontWeight: "bold" },
+  itemLeft: {
+    flex: 1,
+    marginRight: 10,
+  },
+  itemName: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#2C3E50",
+    marginBottom: 4,
+  },
+  itemQuantity: {
+    fontSize: 13,
+    color: "#7F8C8D",
+  },
+  itemPrice: {
+    fontSize: 16,
+    color: "#E74C3C",
+    fontWeight: "bold",
+  },
   totalRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: "#ccc",
-    paddingTop: 10,
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 2,
+    borderTopColor: "#E8E8E8",
+    backgroundColor: "#FFF9E6",
+    padding: 12,
+    borderRadius: 8,
+    marginHorizontal: -6,
   },
-  totalText: { fontSize: 16, fontWeight: "bold" },
-  totalPrice: { fontSize: 16, fontWeight: "bold", color: "#FF5A5F" },
+  totalText: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#2C3E50",
+  },
+  totalPrice: {
+    fontSize: 22,
+    fontWeight: "bold",
+    color: "#E74C3C",
+  },
+  actionSection: {
+    marginTop: 10,
+  },
+  actionTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#7F8C8D",
+    marginBottom: 15,
+  },
+  saveBtn: {
+    backgroundColor: "#8E44AD",
+    padding: 16,
+    borderRadius: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+    shadowColor: "#8E44AD",
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 4,
+  },
+  saveBtnIcon: {
+    fontSize: 28,
+    marginRight: 12,
+  },
+  btnContent: {
+    flex: 1,
+  },
+  saveBtnText: {
+    color: "#fff",
+    fontSize: 17,
+    fontWeight: "bold",
+    marginBottom: 2,
+  },
+  btnSubtext: {
+    color: "rgba(255,255,255,0.8)",
+    fontSize: 12,
+  },
   connectBtn: {
     backgroundColor: "#27ae60",
-    padding: 15,
-    borderRadius: 10,
+    padding: 16,
+    borderRadius: 12,
+    flexDirection: "row",
     alignItems: "center",
-    marginBottom: 10,
+    justifyContent: "center",
+    marginBottom: 12,
+    shadowColor: "#27ae60",
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 4,
   },
-  connectText: { color: "#fff", fontSize: 16, fontWeight: "bold" },
+  connectIcon: {
+    fontSize: 20,
+    marginRight: 8,
+  },
+  connectText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
   printBtn: {
-    backgroundColor: "#FF5A5F",
-    padding: 15,
-    borderRadius: 10,
+    backgroundColor: "#E74C3C",
+    padding: 16,
+    borderRadius: 12,
+    flexDirection: "row",
     alignItems: "center",
-    marginBottom: 10,
+    marginBottom: 12,
+    shadowColor: "#E74C3C",
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 4,
   },
-  printBtnText: { color: "#fff", fontSize: 16, fontWeight: "bold" },
+  printBtnIcon: {
+    fontSize: 28,
+    marginRight: 12,
+  },
+  printBtnText: {
+    color: "#fff",
+    fontSize: 17,
+    fontWeight: "bold",
+    marginBottom: 2,
+  },
+  wifiBtn: {
+    backgroundColor: "#3498DB",
+    padding: 16,
+    borderRadius: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+    shadowColor: "#3498DB",
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 4,
+  },
+  wifiBtnIcon: {
+    fontSize: 28,
+    marginRight: 12,
+  },
+  wifiBtnText: {
+    color: "#fff",
+    fontSize: 17,
+    fontWeight: "bold",
+    marginBottom: 2,
+  },
 });

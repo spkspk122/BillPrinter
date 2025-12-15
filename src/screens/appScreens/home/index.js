@@ -8,9 +8,10 @@ import { SCREENS } from '../../../navigation/screens';
 import { clearData } from '../../../redux/slice/authSlice';
 
 const buttons = [
-  { name: 'Take Order', color: '#FF5A5F', screen: SCREENS?.OREDERTAKING },
-  { name: 'Reports', color: '#3498DB', screen: SCREENS?.Report },
-  { name: 'Inventory', color: '#3498DB', screen: SCREENS.INVESTEDAMOUNT },
+  { name: 'Take Order', icon: '🛒', color: '#FF5A5F', screen: SCREENS?.OREDERTAKING },
+  { name: 'Orders', icon: '📋', color: '#8E44AD', screen: SCREENS?.ORDERLIST },
+  { name: 'Reports', icon: '📊', color: '#3498DB', screen: SCREENS?.Report },
+  { name: 'Inventory', icon: '📦', color: '#27ae60', screen: SCREENS.INVESTEDAMOUNT },
 ];
 
 export default function HomeScreen() {
@@ -79,12 +80,16 @@ export default function HomeScreen() {
 
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.heading}>Store Dashboard</Text>
-
-      {/* ✅ Logout Button */}
-      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-        <Text style={styles.logoutText}>Logout</Text>
-      </TouchableOpacity>
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.greeting}>👋 Welcome!</Text>
+          <Text style={styles.heading}>Store Dashboard</Text>
+        </View>
+        {/* ✅ Logout Button */}
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+          <Text style={styles.logoutText}>🚪 Logout</Text>
+        </TouchableOpacity>
+      </View>
 
       {/* Navigation Buttons */}
       {buttons
@@ -97,7 +102,10 @@ export default function HomeScreen() {
 
       {role !== 'owner' && (
         <>
-          <Text style={styles.subHeading}>Daily Investment</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionIcon}>💵</Text>
+            <Text style={styles.subHeading}>Daily Investment</Text>
+          </View>
 
           <View style={styles.inputContainer}>
             <TouchableOpacity
@@ -149,64 +157,158 @@ export default function HomeScreen() {
 
 function IconButton({ button, onPress }) {
   return (
-    <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center' }} onPress={onPress}>
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          backgroundColor: button.color,
-          padding: 15,
-          borderRadius: 10,
-          flex: 1,
-        }}
-      >
-        <Text style={{ color: '#FFF', fontWeight: 'bold', marginLeft: 10 }}>{button.name}</Text>
+    <TouchableOpacity style={styles.buttonWrapper} onPress={onPress}>
+      <View style={[styles.iconButton, { backgroundColor: button.color }]}>
+        <View style={styles.iconCircle}>
+          <Text style={styles.buttonIcon}>{button.icon}</Text>
+        </View>
+        <Text style={styles.buttonText}>{button.name}</Text>
+        <Text style={styles.buttonArrow}>›</Text>
       </View>
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFF', padding: 15 },
-  heading: { fontSize: 24, fontWeight: 'bold', marginBottom: 10 },
+  container: {
+    flex: 1,
+    backgroundColor: '#F8F9FA',
+    padding: 15
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 25,
+  },
+  greeting: {
+    fontSize: 16,
+    color: '#7F8C8D',
+    marginBottom: 4,
+    fontWeight: '500',
+  },
+  heading: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#2C3E50',
+  },
   logoutButton: {
-    alignSelf: 'flex-end',
-    backgroundColor: '#ff3b30',
-    paddingHorizontal: 15,
-    paddingVertical: 6,
-    borderRadius: 6,
+    backgroundColor: '#E74C3C',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+    shadowColor: '#E74C3C',
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  logoutText: {
+    color: '#FFF',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  buttonWrapper: {
     marginBottom: 15,
   },
-  logoutText: { color: '#FFF', fontWeight: 'bold' },
-  subHeading: { fontSize: 20, fontWeight: 'bold', marginTop: 20, marginBottom: 10 },
-  inputContainer: { marginTop: 10 },
+  iconButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 18,
+    borderRadius: 14,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 4,
+  },
+  iconCircle: {
+    width: 45,
+    height: 45,
+    borderRadius: 23,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 15,
+  },
+  buttonIcon: {
+    fontSize: 22,
+  },
+  buttonText: {
+    color: '#FFF',
+    fontWeight: 'bold',
+    fontSize: 17,
+    flex: 1,
+  },
+  buttonArrow: {
+    color: '#FFF',
+    fontSize: 32,
+    fontWeight: '300',
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 25,
+    marginBottom: 15,
+  },
+  sectionIcon: {
+    fontSize: 24,
+    marginRight: 10,
+  },
+  subHeading: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#2C3E50',
+  },
+  inputContainer: {
+    backgroundColor: '#FFF',
+    borderRadius: 14,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 3,
+  },
   dateButton: {
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: '#3498DB',
-    backgroundColor: '#E8F4F8',
-    borderRadius: 6,
-    padding: 12,
-    marginBottom: 10,
+    backgroundColor: '#EBF5FB',
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 12,
     alignItems: 'center',
   },
   dateButtonText: {
     color: '#3498DB',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 6,
-    padding: 10,
-    marginBottom: 10,
+    borderWidth: 2,
+    borderColor: '#E0E0E0',
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 12,
     fontSize: 16,
+    backgroundColor: '#FFF',
+    color: '#2C3E50',
   },
   saveButton: {
-    backgroundColor: '#FF5A5F',
-    padding: 12,
-    borderRadius: 8,
+    backgroundColor: '#27ae60',
+    padding: 16,
+    borderRadius: 10,
     alignItems: 'center',
+    marginTop: 8,
+    shadowColor: '#27ae60',
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
   },
-  saveButtonText: { color: '#FFF', fontWeight: 'bold', fontSize: 16 },
+  saveButtonText: {
+    color: '#FFF',
+    fontWeight: 'bold',
+    fontSize: 17,
+  },
 });
