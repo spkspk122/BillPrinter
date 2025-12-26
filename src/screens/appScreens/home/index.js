@@ -23,6 +23,11 @@ export default function HomeScreen() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
 
+  // New states for itemized expenses
+  const [expenseItems, setExpenseItems] = useState([]);
+  const [totalInvested, setTotalInvested] = useState(0);
+  const [fullListText, setFullListText] = useState('');
+
   const handleLogout = () => {
     dispatch(clearData()); // Clear role
     navigationServices.navigate(SCREENS.LOGIN); // Go to login
@@ -33,6 +38,75 @@ export default function HomeScreen() {
     if (date) {
       setSelectedDate(date);
     }
+  };
+
+  // Remove expense item
+  const removeExpenseItem = (itemId) => {
+    const updatedItems = expenseItems.filter(item => item.id !== itemId);
+    setExpenseItems(updatedItems);
+
+    // Recalculate total
+    const total = updatedItems.reduce((sum, item) => sum + item.amount, 0);
+    setTotalInvested(total);
+    setInvested(total.toString());
+  };
+
+  // Parse full list and extract items with amounts
+  const parseFullList = () => {
+    if (!fullListText.trim()) {
+      Alert.alert('Validation', 'Please enter the expense list');
+      return;
+    }
+
+    // Split by lines
+    const lines = fullListText.split('\n').filter(line => line.trim());
+    const parsedItems = [];
+
+    lines.forEach((line) => {
+      // First, trim the line and remove leading whitespace
+      let cleanedLine = line.trim();
+
+      // Match pattern like "1. Description - 6000 rs" or "Description - 6000" or "Description 6000"
+      // This regex looks for numbers at the end of the line (with or without "rs")
+      // Updated to handle commas, periods, and special characters in descriptions
+      const match = cleanedLine.match(/^(.+?)[\s\-–—]*(\d+)\s*(?:rs)?\.?\s*$/i);
+
+      if (match) {
+        let description = match[1]
+          .replace(/^\s*\d+\.\s*/, '') // Remove leading number with dot (handles extra spaces)
+          .replace(/^\s*\d+\)\s*/, '') // Remove leading number with parenthesis like "1)"
+          .replace(/^[\s\-–—•]+/, '') // Remove leading spaces, dashes, or bullet points
+          .replace(/[\s\-–—]+$/, '') // Remove trailing spaces and dashes
+          .trim();
+        const amount = parseInt(match[2], 10);
+
+        if (description && amount) {
+          parsedItems.push({
+            id: `${Date.now()}_${Math.random()}`,
+            description,
+            amount,
+          });
+        }
+      }
+    });
+
+    if (parsedItems.length === 0) {
+      Alert.alert('Parse Error', 'Could not find any items with amounts. Please check the format.\n\nExpected format:\n1. Item description - 6000 rs\n2. Another item - 710 rs');
+      return;
+    }
+
+    // Set the parsed items
+    setExpenseItems(parsedItems);
+
+    // Calculate total
+    const total = parsedItems.reduce((sum, item) => sum + item.amount, 0);
+    setTotalInvested(total);
+    setInvested(total.toString());
+
+    // Clear the text area
+    setFullListText('');
+
+    Alert.alert('Success', `Parsed ${parsedItems.length} items. Total: ₹${total}`);
   };
 
   const handleSave = async () => {
@@ -51,6 +125,7 @@ export default function HomeScreen() {
       invested: Number(invested),
       returns: Number(returns),
       createdAt: new Date().toISOString(),
+      expenseItems: expenseItems.length > 0 ? expenseItems : null, // Save itemized expenses if any
     };
 
     console.log('📊 Saving investment:', investmentData);
@@ -70,6 +145,8 @@ export default function HomeScreen() {
       setInvested('');
       setReturns('');
       setSelectedDate(new Date());
+      setExpenseItems([]);
+      setTotalInvested(0);
     } catch (error) {
       console.error('🔥 Firestore save error:', error);
       Alert.alert('Error', `Failed to save: ${error.message}`);
@@ -127,13 +204,71 @@ export default function HomeScreen() {
               />
             )}
 
-            <TextInput
-              style={styles.input}
-              placeholder="Invested Amount"
-              keyboardType="numeric"
-              value={invested}
-              onChangeText={setInvested}
-            />
+            {/* Itemized Expense Entry */}
+            <Text style={styles.itemizedTitle}>📝 Paste Your Expense List</Text>
+
+            {/* Paste full list */}
+            <View style={styles.fullListSection}>
+              <Text style={styles.fullListLabel}>Paste Full List:</Text>
+              <TextInput
+                style={styles.fullListInput}
+                placeholder={`Example:\n1. Chicken for barbeque, chicken for shawarma, 65, tikka & chicken for rice - 6000 rs\n2. Rice for fried rice & rice for master - 710 rs\n3. Oil 5 litres & curd 1 litre - 790 rs`}
+                value={fullListText}
+                onChangeText={setFullListText}
+                multiline
+                numberOfLines={8}
+                textAlignVertical="top"
+              />
+              <TouchableOpacity
+                style={styles.parseButton}
+                onPress={parseFullList}
+              >
+                <Text style={styles.parseButtonText}>🔄 Parse & Calculate</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Display added items */}
+            {expenseItems.length > 0 && (
+              <View style={styles.itemsList}>
+                <Text style={styles.itemsListTitle}>Expense Items:</Text>
+                {expenseItems.map((item, index) => (
+                  <View key={item.id} style={styles.itemCard}>
+                    <View style={styles.itemCardContent}>
+                      <Text style={styles.itemNumber}>{index + 1}.</Text>
+                      <Text style={styles.itemDescription}>{item.description}</Text>
+                      <Text style={styles.itemAmount}>₹{item.amount}</Text>
+                      <TouchableOpacity
+                        onPress={() => removeExpenseItem(item.id)}
+                        style={styles.removeButton}
+                      >
+                        <Text style={styles.removeButtonText}>✕</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))}
+
+                {/* Total Display */}
+                <View style={styles.totalCard}>
+                  <Text style={styles.totalLabel}>Total Invested:</Text>
+                  <Text style={styles.totalAmount}>₹{totalInvested}</Text>
+                </View>
+              </View>
+            )}
+
+            {/* Alternative: Manual entry (if no items added) */}
+            {expenseItems.length === 0 && (
+              <View style={styles.manualEntry}>
+                <Text style={styles.orText}>— OR Enter Total Directly —</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Total Invested Amount"
+                  keyboardType="numeric"
+                  value={invested}
+                  onChangeText={setInvested}
+                />
+              </View>
+            )}
+
             <TextInput
               style={styles.input}
               placeholder="Returns Amount"
@@ -141,6 +276,7 @@ export default function HomeScreen() {
               value={returns}
               onChangeText={setReturns}
             />
+
             <TouchableOpacity
               style={[styles.saveButton, { opacity: loading ? 0.6 : 1 }]}
               disabled={loading}
@@ -310,5 +446,131 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontWeight: 'bold',
     fontSize: 17,
+  },
+  itemizedTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#2C3E50',
+    marginBottom: 12,
+    marginTop: 8,
+  },
+  itemsList: {
+    marginTop: 12,
+    marginBottom: 12,
+  },
+  itemsListTitle: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#2C3E50',
+    marginBottom: 10,
+  },
+  itemCard: {
+    backgroundColor: '#F8F9FA',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#3498DB',
+  },
+  itemCardContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  itemNumber: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#7F8C8D',
+    marginRight: 8,
+    width: 20,
+  },
+  itemDescription: {
+    flex: 1,
+    fontSize: 14,
+    color: '#2C3E50',
+    fontWeight: '500',
+  },
+  itemAmount: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#27ae60',
+    marginRight: 10,
+  },
+  removeButton: {
+    backgroundColor: '#E74C3C',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  removeButtonText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  totalCard: {
+    backgroundColor: '#3498DB',
+    borderRadius: 10,
+    padding: 14,
+    marginTop: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  totalLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FFF',
+  },
+  totalAmount: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#FFF',
+  },
+  manualEntry: {
+    marginTop: 8,
+  },
+  orText: {
+    textAlign: 'center',
+    color: '#7F8C8D',
+    fontSize: 13,
+    marginBottom: 12,
+    fontWeight: '500',
+  },
+  fullListSection: {
+    marginBottom: 16,
+  },
+  fullListLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2C3E50',
+    marginBottom: 8,
+  },
+  fullListInput: {
+    borderWidth: 2,
+    borderColor: '#3498DB',
+    borderRadius: 10,
+    padding: 12,
+    fontSize: 14,
+    backgroundColor: '#F8F9FA',
+    color: '#2C3E50',
+    minHeight: 120,
+    marginBottom: 10,
+  },
+  parseButton: {
+    backgroundColor: '#8E44AD',
+    padding: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+    shadowColor: '#8E44AD',
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  parseButtonText: {
+    color: '#FFF',
+    fontWeight: 'bold',
+    fontSize: 15,
   },
 });

@@ -8,7 +8,6 @@ import {
   SafeAreaView,
   ActivityIndicator,
   Alert,
-  ScrollView,
 } from "react-native";
 import firestore from '@react-native-firebase/firestore';
 
@@ -79,6 +78,49 @@ export default function OrderList() {
     }
   };
 
+  // Delete order
+  const deleteOrder = async (orderId, orderNumber) => {
+    Alert.alert(
+      "Delete Order",
+      `Are you sure you want to delete order #${orderNumber}?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await firestore().collection("sales").doc(orderId).delete();
+              Alert.alert("Success", "Order deleted successfully!");
+            } catch (error) {
+              console.error("Error deleting order:", error);
+              Alert.alert("Error", "Failed to delete order");
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // Edit order - navigate to edit screen
+  const editOrder = (order) => {
+    // We'll create an edit screen, for now just show alert
+    Alert.alert(
+      "Edit Order",
+      "Edit functionality will open order details for modification",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "OK",
+          onPress: () => {
+            // TODO: Navigate to edit screen with order data
+            console.log("Edit order:", order);
+          },
+        },
+      ]
+    );
+  };
+
   // Render order card
   const renderOrderCard = ({ item }) => {
     const isPending = activeTab === "pending";
@@ -130,6 +172,24 @@ export default function OrderList() {
                 minute: '2-digit'
               })}
             </Text>
+          </View>
+        )}
+
+        {/* Edit and Delete buttons - only for pending orders */}
+        {isPending && (
+          <View style={styles.actionButtons}>
+            <TouchableOpacity
+              style={styles.editBtn}
+              onPress={() => editOrder(item)}
+            >
+              <Text style={styles.editBtnText}>✏️ Edit</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.deleteBtn}
+              onPress={() => deleteOrder(item.id, item.orderId)}
+            >
+              <Text style={styles.deleteBtnText}>🗑️ Delete</Text>
+            </TouchableOpacity>
           </View>
         )}
       </View>
@@ -489,5 +549,45 @@ const styles = StyleSheet.create({
     color: "#BDC3C7",
     textAlign: "center",
     fontWeight: "400",
+  },
+  actionButtons: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 12,
+    gap: 10,
+  },
+  editBtn: {
+    flex: 1,
+    backgroundColor: "#3498DB",
+    padding: 12,
+    borderRadius: 8,
+    alignItems: "center",
+    shadowColor: "#3498DB",
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  editBtnText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "bold",
+  },
+  deleteBtn: {
+    flex: 1,
+    backgroundColor: "#E74C3C",
+    padding: 12,
+    borderRadius: 8,
+    alignItems: "center",
+    shadowColor: "#E74C3C",
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  deleteBtnText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "bold",
   },
 });
